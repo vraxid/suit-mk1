@@ -362,7 +362,7 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
   <header class="title corner">
     <div class="brand">
       <h1>SPIDER-MAN</h1>
-      <div class="mk">SUIT MK1 · BUILD LOG</div>
+      <div class="mk">SUIT MK1 · BUILD LOG <span id="ver" style="opacity:.55"></span></div>
     </div>
     <div class="meta" aria-label="Build summary">
       <div class="k">Complete</div><div class="k">Tasks</div><div class="k">To target</div>
@@ -1999,6 +1999,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
+const APP_VERSION = 'v8'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
