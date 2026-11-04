@@ -203,6 +203,28 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .board .dot.black { background: #0b0d12; border-color: #fff; }
 .board .bn { font-size: 12px; }
 .board .bn small { color: var(--dim); margin-left: 6px; font-size: 10px; letter-spacing: .1em; }
+.board.regions li { grid-template-columns: 12px 1fr auto; }
+.board .rc { font-size: 10px; color: var(--dim); letter-spacing: .04em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.board .rc b { color: var(--text); font-weight: 500; }
+.board .dot.part { background: linear-gradient(135deg, var(--good) 50%, transparent 50%); border-color: var(--good); }
+.mini-pieces { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 3px; }
+.mini-pieces li { display: grid; grid-template-columns: 10px 34px 1fr; gap: 8px; align-items: center; font-size: 11px; color: var(--dim); }
+.mini-pieces b { color: #fff; font-weight: 600; letter-spacing: .06em; }
+.mini-pieces .dot { width: 8px; height: 8px; border: 1px solid var(--line); transform: rotate(45deg); }
+.mini-pieces .dot.painted { background: var(--good); border-color: var(--good); }
+.mini-pieces .dot.sewn { background: linear-gradient(135deg, #c22234 50%, #2756a8 50%); border-color: #fff; }
+.sizing .fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sizing .units { display: flex; gap: 6px; }
+.sizing .units button[aria-pressed=true] { background: rgba(99,211,255,.16); color: #fff; }
+.sz-out { border: 1px solid var(--dim); background: rgba(10,31,55,.7); padding: 10px 12px; margin-top: 10px; display: grid; gap: 6px; }
+.sz-out .big { font-family: var(--display); font-size: 30px; color: #fff; line-height: 1; }
+.sz-out .big small { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--line); margin-left: 8px; }
+.sz-out table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.sz-out th, .sz-out td { text-align: right; padding: 3px 4px; border-top: 1px solid rgba(99,211,255,.15); }
+.sz-out th:first-child, .sz-out td:first-child { text-align: left; }
+.sz-out th { font-weight: 400; color: var(--dim); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; }
+.sz-out .tight { color: var(--amber); } .sz-out .ok { color: var(--good); }
+.sz-out p { margin: 0; font-size: 11px; color: var(--dim); line-height: 1.5; }
 .mini { background: none; border: 1px solid var(--dim); color: var(--dim); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 6px; cursor: pointer; }
 .mini:hover:not(:disabled) { border-color: var(--line); color: var(--line); }
 .mini.on { border-color: var(--good); color: var(--good); }
@@ -433,7 +455,7 @@ const PARTS = [
     desc: 'The assembly.',
     tasks: [['s-tryon', 'Full try-on with mask and web shooters'], ['s-photo', 'Photoshoot'], ['s-post', 'Post it on your business account']] },
   { id: 'body', code: 'SM-01', name: 'Body suit', view: 'body',
-    desc: 'Hover a panel to inspect it, click to select. Puff painted panels turn green (ready to sew); sewn panels show their real colour.',
+    desc: 'The ATX Spider pattern pieces on your suit. Separate parts to pick any single piece; puff painted pieces turn green (ready to sew), sewn pieces show their real colour.',
     tasks: [
       ['b-buy', 'Buy and download the ATX Spider BND pattern'], ['b-size', 'Measure yourself and pick your size'],
       ['b-paper', 'Print, tape and cut out the paper pattern'], ['b-sleeve', 'Test-sew one sleeve from scrap'],
@@ -468,24 +490,53 @@ const PARTS = [
     tasks: [] },
 ];
 const byId = Object.fromEntries(PARTS.map(p => [p.id, p]));
-// suit panels, split from the model by region; colours come from the model's own texture
-const PANELS = [
-  { id: 'mask', code: 'P-01', name: 'Mask hood', part: 'hood', dir: [0, 1, .1], d: 20 },
-  { id: 'torso_front', code: 'P-02', name: 'Front torso', part: 'body', dir: [0, 0, 1], d: 22 },
-  { id: 'arm_l', code: 'P-03', name: 'Left arm', part: 'body', dir: [1, .12, 0], d: 24 },
-  { id: 'arm_r', code: 'P-04', name: 'Right arm', part: 'body', dir: [-1, .12, 0], d: 24 },
-  { id: 'glove_l', code: 'P-05', name: 'Left glove', part: 'body', dir: [1, -.05, .1], d: 34 },
-  { id: 'glove_r', code: 'P-06', name: 'Right glove', part: 'body', dir: [-1, -.05, .1], d: 34 },
-  { id: 'boot_l', code: 'P-07', name: 'Left boot', part: 'body', dir: [.35, -.4, .2], d: 16 },
-  { id: 'boot_r', code: 'P-08', name: 'Right boot', part: 'body', dir: [-.35, -.4, .2], d: 16 },
-  { id: 'rest', code: 'P-09', name: 'Back, legs and belt', part: 'body', dir: [0, 0, -1], d: 16 },
-  { id: 'logo_chest', code: 'L-01', name: 'Chest logo', part: 'logos', logo: true, dir: [0, .05, 1], d: 42 },
-  { id: 'logo_back', code: 'L-02', name: 'Back logo', part: 'logos', logo: true, dir: [0, .05, -1], d: 38 },
-  { id: 'lens_gear', code: 'PR-01', name: 'Lenses', part: 'lenses', item: true, dir: [0, 1, .1], d: 20 },
-  { id: 'shooter_l', code: 'PR-02L', name: 'Left web shooter', part: 'webshooters', item: true, dir: [.3, -.1, .4], d: 8 },
-  { id: 'shooter_r', code: 'PR-02R', name: 'Right web shooter', part: 'webshooters', item: true, dir: [-.3, -.1, .4], d: 8 },
+// regions of the suit: what you hover when it is assembled, and what you zoom into
+const REGIONS = {
+  mask:    { code: 'M1–M2', name: 'Head', part: 'hood', dir: [0, 1, .1], d: 20 },
+  chest:   { code: 'S1–S2', name: 'Front torso', dir: [0, 0, 1], d: 13 },
+  back:    { code: 'S3–S5', name: 'Back', dir: [0, 0, -1], d: 13 },
+  waist:   { code: 'S9 · P1', name: 'Belt and crotch', dir: [0, -.1, .25], d: 5 },
+  arm_l:   { code: 'S6–S8', name: 'Left arm', dir: [1, .12, 0], d: 17 },
+  arm_r:   { code: 'S6–S8', name: 'Right arm', dir: [-1, .12, 0], d: 17 },
+  glove_l: { code: 'G1–G5', name: 'Left glove', dir: [1, -.05, .1], d: 27 },
+  glove_r: { code: 'G1–G5', name: 'Right glove', dir: [-1, -.05, .1], d: 27 },
+  leg_l:   { code: 'P2–P5', name: 'Left leg', dir: [.4, -.12, 0], d: 8 },
+  leg_r:   { code: 'P2–P5', name: 'Right leg', dir: [-.4, -.12, 0], d: 8 },
+  boot_l:  { code: 'B1–B4', name: 'Left boot', dir: [.35, -.4, .2], d: 14 },
+  boot_r:  { code: 'B1–B4', name: 'Right boot', dir: [-.35, -.4, .2], d: 14 },
+};
+Object.entries(REGIONS).forEach(([id, r]) => { r.id = id; r.region = true; r.part = r.part || 'body'; });
+// the ATX Spider pattern pieces, cut from the model along its real seams. Head stays one piece.
+const PIECE_DEFS = [
+  ['mask', 'M1–M2', 'Mask hood', 'mask'],
+  ['S1', 'S1', 'Chest', 'chest'], ['S2_l', 'S2', 'Left front side', 'chest'], ['S2_r', 'S2', 'Right front side', 'chest'],
+  ['S4', 'S4', 'Centre back', 'back'], ['S3_l', 'S3', 'Left back side', 'back'], ['S3_r', 'S3', 'Right back side', 'back'],
+  ['S5_l', 'S5', 'Left upper back', 'back'], ['S5_r', 'S5', 'Right upper back', 'back'],
+  ['S9', 'S9', 'Belt', 'waist'], ['P1', 'P1', 'Crotch front', 'waist'],
+  ...['l', 'r'].flatMap(s => { const S = s === 'l' ? 'Left' : 'Right'; return [
+    ['S6_' + s, 'S6', S + ' shoulder and forearm', 'arm_' + s], ['S7_' + s, 'S7', S + ' front sleeve', 'arm_' + s], ['S8_' + s, 'S8', S + ' back sleeve', 'arm_' + s],
+    ['G1_' + s, 'G1', S + ' back of hand', 'glove_' + s], ['G2_' + s, 'G2', S + ' palm', 'glove_' + s], ['G3_' + s, 'G3', S + ' thumb, palm side', 'glove_' + s],
+    ['G4_' + s, 'G4', S + ' thumb, back', 'glove_' + s], ['G5_' + s, 'G5', S + ' finger gussets', 'glove_' + s],
+    ['P2_' + s, 'P2', S + ' front leg', 'leg_' + s], ['P3_' + s, 'P3', S + ' outer leg', 'leg_' + s], ['P4_' + s, 'P4', S + ' seat and inner leg', 'leg_' + s], ['P5_' + s, 'P5', S + ' calf', 'leg_' + s],
+    ['B1_' + s, 'B1', S + ' boot, inner', 'boot_' + s], ['B2_' + s, 'B2', S + ' boot, outer', 'boot_' + s], ['B3_' + s, 'B3', S + ' heel strip', 'boot_' + s], ['B4_' + s, 'B4', S + ' sole', 'boot_' + s],
+  ]; }),
 ];
+const PANELS = [
+  ...PIECE_DEFS.map(([id, code, name, region]) => ({ id, code: code + (/_l$/.test(id) ? ' · L' : /_r$/.test(id) ? ' · R' : ''), short: code, name, region, part: REGIONS[region].part })),
+  { id: 'logo_chest', code: 'L-01', short: 'Logo', name: 'Chest logo', region: 'chest', part: 'logos', logo: true, dir: [0, .05, 1], d: 26 },
+  { id: 'logo_back', code: 'L-02', short: 'Logo', name: 'Back logo', region: 'back', part: 'logos', logo: true, dir: [0, .05, -1], d: 24 },
+  { id: 'lens_gear', code: 'PR-01', name: 'Lenses', region: 'mask', part: 'lenses', item: true, dir: [0, 0, 1], d: 0 },
+  { id: 'shooter_l', code: 'PR-02L', name: 'Left web shooter', region: 'arm_l', part: 'webshooters', item: true, dir: [.3, -.1, .4], d: 8 },
+  { id: 'shooter_r', code: 'PR-02R', name: 'Right web shooter', region: 'arm_r', part: 'webshooters', item: true, dir: [-.3, -.1, .4], d: 8 },
+];
+// the old 9-region suit, so progress saved before the pattern split carries over
+const LEGACY = { torso_front: ['S1', 'S2_l', 'S2_r'], rest: ['S3_l', 'S3_r', 'S4', 'S5_l', 'S5_r', 'S9', 'P1', 'P2_l', 'P2_r', 'P3_l', 'P3_r', 'P4_l', 'P4_r', 'P5_l', 'P5_r'],
+  ...Object.fromEntries(['l', 'r'].flatMap(s => [['arm_' + s, ['S6', 'S7', 'S8'].map(c => c + '_' + s)], ['glove_' + s, ['G1', 'G2', 'G3', 'G4', 'G5'].map(c => c + '_' + s)], ['boot_' + s, ['B1', 'B2', 'B3', 'B4'].map(c => c + '_' + s)]])) };
 const panelById = Object.fromEntries(PANELS.map(p => [p.id, p]));
+const info = id => panelById[id] || REGIONS[id];
+const regionOf = id => REGIONS[id] ? id : panelById[id]?.region;
+const regionPieces = r => PANELS.filter(p => p.region === r && !p.item && !p.logo).map(p => p.id);
+const expandIds = id => !id ? [] : REGIONS[id] ? PANELS.filter(p => p.region === id).map(p => p.id) : [id];
 const STEPS = { fabric: [['painted', 'Puff painted', 'Ready to sew'], ['sewn', 'Sewn', 'Done']], logo: [['cast', 'Cast', 'Ready to glue'], ['glued', 'Glued', 'On the suit']] };
 const stepsOf = p => p.item ? [] : STEPS[p.logo ? 'logo' : 'fabric'];
 const PANEL_INFO = {};   // id -> { red, blue } face share, filled when the model loads
@@ -495,7 +546,7 @@ function panelsFor(partId) {
 }
 
 /* ================= state + sync ================= */
-const state = { done: {}, logs: [], jobs: [], panels: {}, syncing: false };
+const state = { done: {}, logs: [], jobs: [], panels: {}, measure: null, syncing: false };
 let db = null;
 const $ = s => document.querySelector(s);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -578,12 +629,12 @@ async function startSync() {
   const settle = (k, snap) => { if (!snap.metadata.fromCache) { first[k] = true; if (first.parts) { clearTimeout(timer); setSync('ok', 'Saved on this device'); } } };
   const onErr = e => { clearTimeout(timer); setSync('warn', 'Offline'); banner('Could not read saved progress. Reload the app.'); };
   db.collection('parts').onSnapshot(snap => {
-    const done = {}; snap.docs.forEach(d => { done[d.id] = { ...(d.data().done || {}) }; });
+    const done = {}; snap.docs.forEach(d => { done[d.id] = { ...(d.data().done || {}) }; if (d.id === 'sizing') state.measure = d.data().measure || null; });
     state.done = done; settle('parts', snap); render();
   }, onErr);
   db.collection('panels').onSnapshot(snap => {
     const ps = {}; snap.docs.forEach(d => { ps[d.id] = { ...d.data() }; });
-    state.panels = ps; render(); applyAllStates();
+    state.panels = ps; render(); applyAllStates(); migrateLegacy(ps);
   }, onErr);
   db.collection('logs').orderBy('at', 'desc').limit(400).onSnapshot(snap => {
     state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() })); settle('logs', snap); render();
@@ -594,6 +645,18 @@ async function startSync() {
   render();
 }
 
+// progress marked on the old 9-region suit is copied onto the pattern pieces it covered, once
+let migrated = false;
+async function migrateLegacy(ps) {
+  if (migrated || !db) return; migrated = true;
+  const at = new Date().toISOString(), jobs = [];
+  Object.entries(LEGACY).forEach(([old, ids]) => {
+    const o = ps[old]; if (!o || !(o.painted || o.sewn)) return;
+    ids.forEach(id => { if (!ps[id]) jobs.push(db.doc('panels/' + id).set({ painted: !!o.painted, sewn: !!o.sewn, updatedAt: at, from: old })); });
+    jobs.push(db.doc('panels/' + old).delete());
+  });
+  if (jobs.length) { try { await Promise.all(jobs); } catch (e) { writeFail(e); } }
+}
 async function toggleTask(partId, taskId, on) {
   if (!db) return;
   const cur = { ...(state.done[partId] || {}) };
@@ -605,7 +668,13 @@ async function toggleTask(partId, taskId, on) {
     await db.collection('logs').add({ part: partId, kind: 'task', text: (on ? 'Done: ' : 'Reopened: ') + label, at: new Date().toISOString() });
   } catch (e) { writeFail(e); }
 }
+function regionCounts(r) {
+  const ids = regionPieces(r), n = ids.length;
+  const sewn = ids.filter(i => state.panels[i]?.sewn).length, painted = ids.filter(i => state.panels[i]?.painted).length;
+  return { n, sewn, painted };
+}
 function panelStatus(id) {
+  if (REGIONS[id]) { const c = regionCounts(id); return c.sewn === c.n ? 'sewn' : c.painted === c.n ? 'painted' : c.painted ? 'prog' : 'todo'; }
   const p = panelById[id], s = state.panels[id] || {};
   if (p.item) { const st = progress(byId[p.part]).st; return st === 'done' ? 'done' : st === 'prog' ? 'prog' : 'todo'; }
   if (p.logo) return s.glued ? 'glued' : s.cast ? 'cast' : 'todo';
@@ -723,21 +792,19 @@ function jobForm(partId) {
 /* ================= navigation: the model is the menu ================= */
 const CARDS = ['suit', 'logos', 'printer'];
 const SUITPARTS = ['suit', 'body', 'hood', 'faceshell', 'lenses', 'webshooters'];
-const REGION = { mask: 'Head', torso_front: 'Chest', arm_l: 'Left arm', arm_r: 'Right arm', glove_l: 'Left hand', glove_r: 'Right hand', boot_l: 'Left boot', boot_r: 'Right boot', rest: 'Back and legs', logo_chest: 'Chest logo', logo_back: 'Back logo', lens_gear: 'Lenses', shooter_l: 'Left web shooter', shooter_r: 'Right web shooter' };
-// what each zoomed-in region offers: [type, id, label, anchor]
-const CHOICES = {
-  mask: [['panel', 'mask', 'Mask hood', 'hood'], ['part', 'lenses', 'Lenses', 'eyes'], ['part', 'faceshell', 'Faceshell', 'face']],
-  arm_l: [['panel', 'arm_l', 'Arm panel', 'self'], ['part', 'webshooters', 'Web shooter', 'wristL']],
-  arm_r: [['panel', 'arm_r', 'Arm panel', 'self'], ['part', 'webshooters', 'Web shooter', 'wristR']],
-  glove_l: [['panel', 'glove_l', 'Glove panel', 'self'], ['part', 'webshooters', 'Web shooter', 'wristL']],
-  glove_r: [['panel', 'glove_r', 'Glove panel', 'self'], ['part', 'webshooters', 'Web shooter', 'wristR']],
-  torso_front: [['panel', 'torso_front', 'Front torso panel', 'self'], ['panel', 'logo_chest', 'Chest logo', 'logo_chest']],
-  rest: [['panel', 'rest', 'Back, legs and belt', 'self'], ['panel', 'logo_back', 'Back logo', 'logo_back']],
-  boot_l: [['panel', 'boot_l', 'Left boot', 'self']], boot_r: [['panel', 'boot_r', 'Right boot', 'self']],
-  logo_chest: [['panel', 'logo_chest', 'Chest logo', 'self']], logo_back: [['panel', 'logo_back', 'Back logo', 'self']],
-  lens_gear: [['part', 'lenses', 'Lenses', 'self']], shooter_l: [['part', 'webshooters', 'Web shooter', 'self']], shooter_r: [['part', 'webshooters', 'Web shooter', 'self']],
-};
-const KEEP = { mask: ['mask', 'lens_gear'], arm_l: ['arm_l', 'shooter_l'], arm_r: ['arm_r', 'shooter_r'], glove_l: ['glove_l', 'shooter_l'], glove_r: ['glove_r', 'shooter_r'], shooter_l: ['shooter_l'], shooter_r: ['shooter_r'], torso_front: ['torso_front', 'logo_chest'], rest: ['rest', 'logo_back'] };
+const REGION = Object.fromEntries([...PANELS.map(p => [p.id, p.name]), ...Object.entries(REGIONS).map(([k, r]) => [k, r.name])]);
+// what each zoomed-in region offers: [type, id, label, anchor]. Pattern pieces are labelled by their code.
+const CHOICES = {}, KEEP = {};
+Object.keys(REGIONS).forEach(r => {
+  const pieces = PANELS.filter(p => p.region === r && !p.item);
+  CHOICES[r] = pieces.map(p => ['panel', p.id, p.id === 'mask' ? 'Mask hood' : p.logo ? p.name : p.short, p.id === 'mask' ? 'hood' : 'self']);
+  KEEP[r] = PANELS.filter(p => p.region === r).map(p => p.id);
+});
+CHOICES.mask.push(['part', 'lenses', 'Lenses', 'eyes'], ['part', 'faceshell', 'Faceshell', 'face']);
+['l', 'r'].forEach(s => {
+  CHOICES['arm_' + s].push(['part', 'webshooters', 'Web shooter', s === 'l' ? 'wristL' : 'wristR']);
+  CHOICES['glove_' + s].push(['part', 'webshooters', 'Web shooter', s === 'l' ? 'wristL' : 'wristR']); KEEP['glove_' + s].push('shooter_' + s);
+});
 const PART_VIEW = { lenses: 'lenses', faceshell: 'faceshell', webshooters: 'webshooter' };
 let nav = { level: 0, focus: null, item: null };
 
@@ -746,14 +813,15 @@ function progressOf(ids) {
   return { n, d, pct: n ? d / n : 0, st: !n ? 'queue' : d === 0 ? 'none' : d === n ? 'done' : 'prog' };
 }
 function statusLabel(id) {
+  if (REGIONS[id]) { const c = regionCounts(id); return c.sewn === c.n ? 'all sewn' : c.painted + ' of ' + c.n + ' painted · ' + c.sewn + ' sewn'; }
   const p = panelById[id], st = panelStatus(id);
   return ({ todo: p.item ? 'not started' : p.logo ? 'not cast' : 'not painted', painted: 'ready to sew', sewn: 'sewn', cast: 'ready to glue', glued: 'glued', prog: 'in progress', done: 'done' })[st];
 }
 function inspectIds() {
   if (current === 'logos') return ['logo_chest', 'logo_back'];
   if (current !== 'suit') return [];
-  if (nav.level === 0) return PANELS.map(p => p.id);
-  if (nav.level === 1) return KEEP[nav.focus] || [nav.focus];
+  if (nav.level === 0) return [...PANELS.map(p => p.id), ...Object.keys(REGIONS)];
+  if (nav.level === 1) return [...(KEEP[nav.focus] || []), nav.focus];
   return nav.item?.type === 'panel' ? [nav.item.id] : [];
 }
 
@@ -773,9 +841,26 @@ function inspectorBlock(box) {
   const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('Inspector'), el('span', '', 'hover or click the model')); sec.append(h);
   const insp = el('div', 'insp'); insp.id = 'insp'; sec.append(insp); box.append(sec);
 }
-function boardBlock(box, list) {
+function regionBoardBlock(box) {
+  const sec = el('section'), all = PANELS.filter(p => !p.item && !p.logo), sewn = all.filter(p => state.panels[p.id]?.sewn).length;
+  const h = el('h3'); h.append(document.createTextNode('Pattern pieces'), el('span', '', sewn + '/' + all.length + ' sewn')); sec.append(h);
+  const ul = el('ul', 'board regions'); ul.id = 'board'; ul.style.marginTop = '8px';
+  Object.values(REGIONS).forEach(r => {
+    const c = regionCounts(r.id), st = panelStatus(r.id), li = el('li'); li.dataset.panel = r.id;
+    if (r.id === selPanel) li.classList.add('sel');
+    const dot = el('span', 'dot ' + (st === 'sewn' ? 'sewn' : st === 'painted' ? 'painted' : st === 'prog' ? 'part' : ''));
+    const nm = el('span', 'bn', r.name); nm.append(el('small', '', r.code));
+    const m = el('span', 'rc'); m.append(el('b', '', c.painted + '/' + c.n), document.createTextNode(' painted · '), el('b', '', c.sewn + '/' + c.n), document.createTextNode(' sewn'));
+    li.append(dot, nm, m);
+    li.addEventListener('mouseenter', () => setHover(r.id, 'list')); li.addEventListener('mouseleave', () => setHover(null, 'list'));
+    li.addEventListener('click', () => { if (selPanel === r.id) focusOn(r.id); else selectPanel(r.id); });
+    ul.append(li);
+  });
+  sec.append(ul); box.append(sec);
+}
+function boardBlock(box, list, title) {
   const sec2 = el('section'); const done = list.filter(x => ['sewn', 'glued'].includes(panelStatus(x.id))).length;
-  const h2 = el('h3'); h2.append(document.createTextNode('Panels'), el('span', '', done + '/' + list.length + ' finished')); sec2.append(h2);
+  const h2 = el('h3'); h2.append(document.createTextNode(title || 'Panels'), el('span', '', done + '/' + list.length + ' finished')); sec2.append(h2);
   const lg = el('div', 'legend');
   [['Not started', 'transparent;border:1px solid #63d3ff'], ['Painted · ready to sew', '#5cf2a6'], ['Sewn', 'linear-gradient(135deg,#c22234 50%,#2756a8 50%)']].forEach(([t, c]) => { const sp = el('span'); const i = el('i'); i.style.cssText = 'background:' + c; sp.append(i, document.createTextNode(t)); lg.append(sp); });
   sec2.append(lg);
@@ -794,10 +879,61 @@ function boardBlock(box, list) {
     });
     li.addEventListener('mouseenter', () => setHover(x.id, 'list'));
     li.addEventListener('mouseleave', () => setHover(null, 'list'));
-    li.addEventListener('click', () => { if (current === 'suit' && selPanel === x.id) focusOn(x.id); else selectPanel(x.id); });
+    li.addEventListener('click', () => {
+      if (current !== 'suit' || selPanel !== x.id) return selectPanel(x.id);
+      if (nav.level === 1) { const ch = (CHOICES[nav.focus] || []).find(c => c[1] === x.id); if (ch) chooseItem(ch); } else if (nav.level === 0) focusOn(x.id);
+    });
     ul.append(li);
   });
   sec2.append(ul); box.append(sec2);
+}
+// ATX Spider sizing: the pattern is drawn for a 69" masculine medium (chest 38, waist 32, hip 37.5, inseam 32).
+// Scale it uniformly by height, then check the waist; for one-size files ATX averages the height and waist ratios.
+const ATX_BASE = { height: 69, chest: 38, waist: 32, hip: 37.5, inseam: 32 };
+const SZ_FIELDS = [['height', 'Height'], ['chest', 'Chest'], ['waist', 'Waist'], ['hip', 'Hips'], ['inseam', 'Inseam']];
+function atxScale(m) {   // m in inches
+  if (!m?.height) return null;
+  const h = m.height / ATX_BASE.height, w = m.waist ? m.waist / ATX_BASE.waist : null;
+  return { h, w, scale: w ? (h + w) / 2 : h };
+}
+async function saveMeasure(measure) {
+  if (!db) return; state.measure = measure; render();
+  try { await serial('parts/sizing', () => db.doc('parts/sizing').set({ done: {}, measure, updatedAt: new Date().toISOString() })); }
+  catch (e) { writeFail(e); }
+}
+function sizingBlock(box) {
+  const m = state.measure || {}, unit = m.unit || 'cm', k = unit === 'cm' ? 2.54 : 1;
+  const sec = el('section', 'sizing'); const h = el('h3'); h.append(document.createTextNode('Pattern size'), el('span', '', 'ATX Spider sizing')); sec.append(h);
+  const f = el('form', 'row'); const units = el('div', 'units');
+  ['cm', 'in'].forEach(u => { const b = el('button', 'mini', u); b.type = 'button'; b.setAttribute('aria-pressed', u === unit ? 'true' : 'false'); b.addEventListener('click', () => saveMeasure({ ...m, unit: u })); units.append(b); });
+  const grid = el('div', 'fields'), inputs = {};
+  SZ_FIELDS.forEach(([key, label]) => {
+    const l = el('label', 'f'); l.append(document.createTextNode(label + ' (' + unit + ')'));
+    const i = el('input'); i.type = 'number'; i.step = '0.1'; i.min = '0'; i.inputMode = 'decimal'; i.id = 'sz-' + key; i.disabled = !db;
+    if (m[key]) i.value = +(m[key] * k).toFixed(1);
+    l.append(i); grid.append(l); inputs[key] = i;
+  });
+  const btn = el('button', 'btn', 'Work out my size'); btn.type = 'submit'; btn.disabled = !db;
+  f.append(units, grid, btn);
+  f.addEventListener('submit', e => { e.preventDefault(); const out = { unit }; SZ_FIELDS.forEach(([key]) => { const v = parseFloat(inputs[key].value); if (v > 0) out[key] = +(v / k).toFixed(2); }); saveMeasure(out); });
+  sec.append(f);
+  const r = atxScale(m);
+  if (r) {
+    const pct = Math.round(r.scale * 100), o = el('div', 'sz-out');
+    const big = el('div', 'big', pct + '%'); big.append(el('small', '', 'TILE SCALE')); o.append(big);
+    o.append(el('p', '', r.w ? 'Average of your height (' + Math.round(r.h * 100) + '%) and waist (' + Math.round(r.w * 100) + '%) against the 69" medium the pattern is drawn for.' : 'From your height alone (' + Math.round(r.h * 100) + '%). Add your waist to fine-tune it.'));
+    const t = el('table'), hd = el('tr'); ['', 'Pattern at ' + pct + '%', 'You', ''].forEach(x => hd.append(el('th', '', x))); t.append(hd);
+    SZ_FIELDS.forEach(([key, label]) => {
+      if (!m[key]) return;
+      const pat = ATX_BASE[key] * r.scale, d = m[key] - pat, tr = el('tr'), fmt = v => (v * k).toFixed(1);
+      const cls = Math.abs(d) <= 1 ? 'ok' : 'tight';
+      const note = key === 'height' || key === 'inseam' ? (Math.abs(d) <= 1 ? 'matches' : d > 0 ? 'you are longer' : 'you are shorter') : (Math.abs(d) <= 1 ? 'matches' : d > 0 ? 'snugger' : 'looser');
+      tr.append(el('td', '', label), el('td', '', fmt(pat)), el('td', '', fmt(m[key])), el('td', cls, (d >= 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + note)); t.append(tr);
+    });
+    o.append(t, el('p', '', 'Print in Acrobat Reader: Print › Poster, Tile Scale ' + pct + '%, one side only. Cut on the seam-allowance line (¼").'));
+    sec.append(o);
+  }
+  box.append(sec);
 }
 function tasksBlock(box, partId, title) {
   const p = byId[partId]; if (!p.tasks.length) return;
@@ -839,9 +975,11 @@ function logBlock(box, parts, writePart, keepNote, title) {
   box.append(sec);
 }
 function choicesBlock(box) {
+  const list = (CHOICES[nav.focus] || []).filter(ch => ch[0] === 'part' || panelById[ch[1]]?.logo || ch[1] === 'mask');
+  if (!list.length) return;
   const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('Choose'), el('span', '', 'or click it on the model')); sec.append(h);
   const g = el('div', 'choices');
-  (CHOICES[nav.focus] || []).forEach(ch => {
+  list.forEach(ch => {
     const [type, id, label] = ch, b = el('button', 'choice'); b.type = 'button';
     let sub = '';
     if (type === 'part') { const pr = progress(byId[id]); sub = 'Printed part · ' + ST_LABEL[pr.st].toLowerCase() + ' · ' + pr.d + '/' + pr.n; }
@@ -861,15 +999,15 @@ function renderDetail() {
   if (current === 'logos' || current === 'printer') return partSheet(box, current, keepNote);
   if (nav.level === 0) {
     headBlock(box, 'SM-00', 'ASSEMBLY', 'Full suit', 'Click a part to select it. Click it again to zoom in and choose what to open.', progChip(progressOf(SUITPARTS)));
-    inspectorBlock(box); boardBlock(box, PANELS.filter(p => !p.item));
+    inspectorBlock(box); regionBoardBlock(box); sizingBlock(box);
     tasksBlock(box, 'body', 'Suit build'); tasksBlock(box, 'suit', 'Final steps');
     return logBlock(box, null, 'suit', keepNote, 'Build log · everything');
   }
   backBlock(box);
   if (nav.level === 1) {
-    const p = panelById[nav.focus];
-    headBlock(box, p.code, 'ZOOM', REGION[nav.focus], 'Choose what to open. The rest of the suit is put away until you go back.');
-    choicesBlock(box); inspectorBlock(box);
+    const p = REGIONS[nav.focus];
+    headBlock(box, p.code, 'ZOOM', p.name, 'The pattern pieces lift apart a little so you can pick each one. Click a piece to mark it, click it again to zoom in.');
+    inspectorBlock(box); boardBlock(box, PANELS.filter(x => x.region === nav.focus && !x.item), 'Pattern pieces'); choicesBlock(box);
     return logBlock(box, [p.part], p.part, keepNote);
   }
   if (nav.item.type === 'part') return partSheet(box, nav.item.id, keepNote);
@@ -917,7 +1055,7 @@ function renderLabels() {
   if (current !== 'suit') { title = byId[current].name; c = byId[current].code; path = [title]; }
   else {
     path = ['Full suit']; title = 'Full suit'; c = 'SM-00';
-    if (nav.level >= 1) { path.push(REGION[nav.focus]); title = REGION[nav.focus]; c = panelById[nav.focus].code; }
+    if (nav.level >= 1) { path.push(REGION[nav.focus]); title = REGION[nav.focus]; c = REGIONS[nav.focus].code; }
     if (nav.level === 2) { const n = nav.item.id === 'webshooters' ? (shooterSide() === 'r' ? 'Right' : 'Left') + ' web shooter' : nav.item.type === 'part' ? byId[nav.item.id].name : panelById[nav.item.id].name; path.push(n); title = n; c = nav.item.type === 'part' ? byId[nav.item.id].code : panelById[nav.item.id].code; }
   }
   crumbs.textContent = path.join('  ›  '); name.textContent = title;
@@ -934,6 +1072,7 @@ function renderInspector() {
     box.append(el('div', 'ic', 'Nothing selected'), el('div', 'hint', current === 'suit' && nav.level === 0 ? 'Hover a part of the model to see its info. Click it to select it, click it again to zoom in. Use Separate parts to lift the panels off.' : 'Hover a part on the model to see its info.'));
     return;
   }
+  if (REGIONS[id]) return regionInspector(box, id);
   const p = panelById[id], st = panelStatus(id), info = PANEL_INFO[id];
   if (p.item) {
     const pr = progress(byId[p.part]);
@@ -967,10 +1106,30 @@ function renderInspector() {
   const next = { todo: p.logo ? 'Next: cast it in the printed mold.' : 'Next: puff paint it flat on the board.', painted: 'Next: sew it, vertical lines facing you.', cast: 'Next: glue it to the stretched panel.', sewn: 'Finished.', glued: 'Finished.' }[st];
   box.append(el('div', 'hint', next));
 }
+function regionInspector(box, id) {
+  const r = REGIONS[id], c = regionCounts(id);
+  const ic = el('div', 'ic'); ic.append(document.createTextNode(r.code + ' · ' + c.n + ' pattern piece' + (c.n === 1 ? '' : 's')), el('em', '', hoverPanel ? 'Hover' : 'Selected'));
+  box.append(ic, el('div', 'in', r.name));
+  const r2 = el('div', 'row2'); r2.append(el('span', 'chip ' + (c.sewn === c.n ? 'st-done' : c.painted ? 'st-prog' : 'st-none'), c.painted + '/' + c.n + ' painted · ' + c.sewn + '/' + c.n + ' sewn')); box.append(r2);
+  const ul = el('ul', 'mini-pieces');
+  regionPieces(id).forEach(pid => {
+    const p = panelById[pid], st = panelStatus(pid), li = el('li');
+    li.append(el('span', 'dot ' + (st === 'sewn' ? 'sewn' : st === 'painted' ? 'painted' : '')), el('b', '', p.short || p.code), el('span', '', p.name.replace(/^(Left|Right) /, '')));
+    ul.append(li);
+  });
+  box.append(ul);
+  if (current === 'suit' && nav.level === 0) { const z = el('button', 'btn', 'Zoom in ›'); z.type = 'button'; z.addEventListener('click', () => focusOn(id)); box.append(z); }
+  box.append(el('div', 'hint', currentView?.set?.exploded ? 'Pieces are separated: click any single piece to mark it.' : 'Click again to zoom in, or press Separate parts to pick single pieces.'));
+}
 function renderQbar() {
   const q = $('#qbar'); if (!q) return;
-  const id = selPanel, show = id && currentView?.set?.pieces?.[id];
+  const id = selPanel, show = id && (currentView?.set?.pieces?.[id] || (REGIONS[id] && current === 'suit'));
   q.hidden = !show; q.textContent = ''; if (!show) return;
+  if (REGIONS[id]) {
+    const t = el('div'); t.append(el('div', 'qn', REGIONS[id].name), el('div', 'qs', REGIONS[id].code + ' · ' + statusLabel(id))); q.append(t);
+    if (nav.level === 0) { const z = el('button', 'mini', 'Zoom'); z.type = 'button'; z.addEventListener('click', () => focusOn(id)); q.append(z); }
+    return;
+  }
   const p = panelById[id];
   const t = el('div'); t.append(el('div', 'qn', p.name), el('div', 'qs', p.code + ' · ' + statusLabel(id)));
   q.append(t);
@@ -988,10 +1147,10 @@ function setHover(id, from) {
   if (hoverPanel === id) return;
   hoverPanel = id; renderInspector(); renderQbar(); updateGlow();
   if (id) SFX.hover(id);
-  document.querySelectorAll('#board li').forEach(li => li.classList.toggle('hl', li.dataset.panel === id));
+  const hl = expandIds(id); document.querySelectorAll('#board li').forEach(li => li.classList.toggle('hl', li.dataset.panel === id || hl.includes(li.dataset.panel)));
 }
 function selectPanel(id) {
-  const p = panelById[id]; if (!p) return;
+  if (!info(id)) return;
   selPanel = id; SFX.select(id);
   render(); updateGlow();
 }
@@ -1108,7 +1267,7 @@ function loadModel(file, onLoad, onErr) {
   LOAD[file] = 0;
   loader.load('models/' + file, g => { LOAD[file] = 1; onLoad(g); }, x => { if (x.total) LOAD[file] = Math.min(.99, x.loaded / x.total); }, e => { LOAD[file] = 1; onErr && onErr(e); });
 }
-let currentView = null, pendingView = null, printerHead = null;
+let currentView = null, pendingView = null, printerHead = null, camAnim = null;
 
 function frame(obj, { pad = 1.35, target } = {}) {
   obj.updateMatrixWorld(true);
@@ -1150,7 +1309,7 @@ function showView(name) {
   const sep = $('#sep');
   if (!v) { sep.hidden = true; return; }
   if (currentView) scene.remove(currentView.root);
-  currentView = v; scene.add(v.root); resize.moved = false;
+  currentView = v; scene.add(v.root); resize.moved = false; camAnim = null;   // a zoom still running from the last view must not carry over
   controls.target.copy(v.c);
   camDist = null; placeCamera(v);
   controls.autoRotate = !reduced; pausedAt = -1;
@@ -1201,7 +1360,7 @@ const sets = [];
 function splitX(geo, sign) {
   const g = geo.clone(), pos = g.attributes.position, src = g.index ? g.index.array : [...Array(pos.count).keys()], keep = [];
   for (let i = 0; i < src.length; i += 3) { const a = src[i], b = src[i + 1], c = src[i + 2]; if ((pos.getX(a) + pos.getX(b) + pos.getX(c)) * sign > 0) keep.push(a, b, c); }
-  g.setIndex(keep); g.computeBoundingBox(); g.computeBoundingSphere(); return g;
+  g.setIndex(keep); const out = g.toNonIndexed(); out.computeBoundingBox(); out.computeBoundingSphere(); return out;   // drop the other side's vertices so its bounds are right
 }
 function geomsFromGLTF(gltf) {
   const out = {}; gltf.scene.updateMatrixWorld(true);
@@ -1236,13 +1395,35 @@ function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatL
     inner.position.copy(c).negate(); pivot.position.copy(c);
     const u = pivot.userData;
     u.home = c.clone(); u.size = bb.getSize(new THREE.Vector3()); u.phase = i * 1.7;
-    u.dir = new THREE.Vector3(...p.dir).normalize().multiplyScalar(p.d);
+    u.dir = new THREE.Vector3(); u.loc = new THREE.Vector3(); u.locK = 0;
     u.kCur = 0; u.from = 0; u.to = 0; u.start = 0;
     // a faint tether from where the piece belongs to where it floats
     const tg = new THREE.BufferGeometry().setFromPoints([c.clone(), c.clone()]);
     u.tether = new THREE.Line(tg, new THREE.LineDashedMaterial({ color: INK, dashSize: 2, gapSize: 1.5, transparent: true, opacity: 0, depthWrite: false }));
     set.root.add(u.tether);
     set.pieces[id] = pivot; set.glow[id] = 0; set.order.push(id); set.root.add(pivot);
+  });
+  // where each piece floats to: its region moves out as a block, then each pattern piece lifts off along its own outside
+  const rc = {};
+  ids.forEach(id => { const r = panelById[id].region; if (r) (rc[r] = rc[r] || new THREE.Box3()).expandByPoint(set.pieces[id].userData.home); });
+  ids.forEach(id => {
+    const p = panelById[id], u = set.pieces[id].userData, R = REGIONS[p.region];
+    if (R) u.dir.set(...R.dir).normalize().multiplyScalar(R.d);
+    if (p.item || p.logo) { u.dir.addScaledVector(new THREE.Vector3(...p.dir).normalize(), p.d); return; }
+    const sum = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(); let area = 0;
+    set.pieces[id].children[0].children.forEach(m => {
+      if (m.userData.kind === 'web') return;
+      const pos = m.geometry.attributes.position, idx = m.geometry.index;
+      for (let i = 0, n = idx ? idx.count : pos.count; i < n; i += 3) {
+        const i0 = idx ? idx.getX(i) : i, i1 = idx ? idx.getX(i + 1) : i + 1, i2 = idx ? idx.getX(i + 2) : i + 2;
+        a.fromBufferAttribute(pos, i1).sub(c.fromBufferAttribute(pos, i0)); b.fromBufferAttribute(pos, i2).sub(c); a.cross(b);
+        sum.add(a); area += a.length();
+      }
+    });
+    let nl = sum.clone();
+    if (nl.length() < area * .35) nl = u.home.clone().sub(rc[p.region].getCenter(new THREE.Vector3()));   // pieces that wrap all the way round
+    if (nl.length() < 1e-6) nl.set(0, 0, 0); else nl.normalize();
+    u.loc.copy(nl).multiplyScalar(6); u.dir.addScaledVector(nl, 17);
   });
   if (gear) ['gear__Frame', 'gear__Lense', 'gear__Webshotter', 'gear__material'].forEach(k => {
     if (!G[k]) return; const eyes = k.includes('Frame') || k.includes('Lense');
@@ -1292,8 +1473,16 @@ function applyState(set, instant) {
 function applyAllStates() { sets.forEach(s => applyState(s)); }
 function updateGlow() {
   sets.forEach(set => {
-    Object.keys(set.pieces).forEach(id => { set.glow[id] = id === hoverPanel ? 1 : id === selPanel ? .45 : 0; });
-    const sel = selPanel && set.pieces[selPanel];
+    const hov = expandIds(hoverPanel), sl = expandIds(selPanel);
+    Object.keys(set.pieces).forEach(id => { set.glow[id] = hov.includes(id) ? 1 : sl.includes(id) ? .45 : 0; });
+    set.selIds = sl;
+    let sel = selPanel && set.pieces[selPanel];
+    if (!sel && REGIONS[selPanel] && sl.some(i => set.pieces[i])) {   // a whole region: brackets around all its pieces
+      const b = piecesBox(set, sl), rp = set.regionPivot || (set.regionPivot = new THREE.Group());
+      if (rp.parent !== set.root) set.root.add(rp);
+      if (rp.userData.region !== selPanel) { rp.position.copy(b.getCenter(new THREE.Vector3())); rp.userData.size = b.getSize(new THREE.Vector3()); rp.userData.region = selPanel; if (set.bracket.parent === rp) set.bracket.userData.t0 = clock.getElapsedTime(); }
+      sel = rp;
+    }
     if (sel && set.bracket.parent !== sel) { sel.add(set.bracket); set.bracket.userData.k = 0; set.bracket.userData.t0 = clock.getElapsedTime(); }
     if (!sel && set.bracket.parent) set.bracket.parent.remove(set.bracket);
   });
@@ -1318,7 +1507,8 @@ function stepSets(dt, t) {
       u.kCur = u.from + (u.to - u.from) * e; kmax = Math.max(kmax, u.kCur);
       const k = THREE.MathUtils.clamp(u.kCur, 0, 1.2);
       const bob = reduced ? 0 : Math.sin(t * 1.1 + u.phase) * .9 * Math.min(k, 1);
-      grp.position.copy(u.home).addScaledVector(u.dir, u.kCur * set.scale); grp.position.y += bob;
+      u.locK += ((set.locT?.[id] || 0) - u.locK) * Math.min(1, dt * 2.6);
+      grp.position.copy(u.home).addScaledVector(u.dir, u.kCur * set.scale).addScaledVector(u.loc, u.locK); grp.position.y += bob;
       // zoom focus: everything else is pulled away from the focused part and fades out
       const ft = set.fadeT?.[id] ?? 1; u.fade = (u.fade ?? 1) + (ft - (u.fade ?? 1)) * Math.min(1, dt * (ft > (u.fade ?? 1) ? 3.5 : 5));
       if (set.focusC && u.fade < .999) grp.position.addScaledVector(tmp2.copy(u.home).sub(set.focusC).normalize(), (1 - u.fade) * 26);
@@ -1337,7 +1527,7 @@ function stepSets(dt, t) {
         mu.g = (mu.g || 0) + (want - (mu.g || 0)) * Math.min(1, dt * 9);
         mu.flash = Math.max(0, (mu.flash || 0) - dt * 1.4);
         const U = mu.holo.uniforms; U.uColor.value.copy(mu.col); U.uOpacity.value = mu.op * (u.fade ?? 1); U.uPat.value = mu.pat; U.uGlow.value = (mu.g + mu.flash) * (u.fade ?? 1);
-        const sel = id === selPanel, sy = u.home.y + u.dir.y * u.kCur * set.scale - u.size.y / 2 + ((t * .55) % 1.2) * u.size.y;
+        const sel = set.selIds?.includes(id), sy = u.home.y + u.dir.y * u.kCur * set.scale - u.size.y / 2 + ((t * .55) % 1.2) * u.size.y;
         U.uScan.value = sel ? .9 : mu.flash * 1.5; U.uScanY.value = sel ? sy : grp.position.y - u.size.y / 2 + (1 - mu.flash) * u.size.y; U.uScanW.value = Math.max(1, u.size.y * .06);
         if (mu.dark) { const D = mu.dark.uniforms; D.uAlpha.value = u.fade ?? 1; D.uGlow.value = mu.g + mu.flash; D.uScan.value = U.uScan.value; D.uScanY.value = U.uScanY.value; D.uScanW.value = U.uScanW.value; }
       });
@@ -1384,7 +1574,9 @@ function pick(x, y) {
   ndc.set(x / canvas.clientWidth * 2 - 1, -(y / canvas.clientHeight) * 2 + 1);
   ray.setFromCamera(ndc, camera);
   const hit = ray.intersectObjects(set.pick.filter(m => (m.parent.parent.userData.fade ?? 1) > .5), false)[0];
-  return hit ? hit.object.userData.panel : null;
+  if (!hit) return null;
+  const id = hit.object.userData.panel;   // assembled suit: you point at a region; separated or zoomed: at single pieces
+  return current === 'suit' && nav.level === 0 && !set.exploded ? regionOf(id) : id;
 }
 let pickFrame = 0;
 function hoverTick() {
@@ -1395,7 +1587,7 @@ function hoverTick() {
   setHover(id);
   canvas.style.cursor = id ? 'pointer' : '';
   if (id) {
-    const p = panelById[id], st = panelStatus(id);
+    const p = info(id), st = panelStatus(id);
     if (tip.dataset.id !== id + st) { tip.textContent = ''; tip.append(el('b', '', p.name), el('span', '', p.code + ' · ' + statusLabel(id) + (current === 'suit' && nav.level === 0 && id === selPanel ? ' · click to zoom' : ''))); tip.dataset.id = id + st; tip.classList.remove('pop'); void tip.offsetWidth; tip.classList.add('pop'); }
     tip.style.display = 'block'; tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px';
   } else { tip.style.display = 'none'; tip.dataset.id = ''; }
@@ -1482,7 +1674,7 @@ function stepInserts(set, dt) {
 }
 
 /* ---------- zoom navigation on the full suit ---------- */
-let camAnim = null, viewIntro = null;
+let viewIntro = null;
 function camTo(target, dist, dur = 1.25) {
   const dir = camera.position.clone().sub(controls.target).normalize();
   if (dir.lengthSq() < .5) dir.set(.48, .12, .87).normalize();
@@ -1508,12 +1700,13 @@ function frameDist(box, pad = 1.5) {
 }
 function setFade(set, keep, center) {
   set.fadeT = {}; Object.keys(set.pieces).forEach(id => { set.fadeT[id] = !keep || keep.includes(id) ? 1 : 0; });
-  set.focusC = keep ? (center?.isVector3 ? center.clone() : set.pieces[center].userData.home.clone()) : null;
+  set.focusC = keep ? (center?.isVector3 ? center.clone() : REGIONS[center] ? piecesBox(set, KEEP[center]).getCenter(new THREE.Vector3()) : set.pieces[center].userData.home.clone()) : null;
+  set.locT = {}; if (keep && REGIONS[center]) keep.forEach(id => { set.locT[id] = 1; });
   if (!keep || keep.length) Object.values(set.inserts || {}).forEach(ins => { ins.fadeT = 0; unturn(ins); });
 }
 function anchorPos(anchor, focusId) {
   const s = views.suit.set, P = id => s.pieces[id].userData;
-  if (anchor === 'self') return P(focusId).home.clone();
+  if (anchor === 'self') { const u = P(focusId), lift = u.size.length() < 22 ? 3.4 : 2.2; return u.home.clone().addScaledVector(u.loc || tmp.set(0, 0, 0), lift); }
   if (anchor === 'hood') return P('mask').home.clone().add(new THREE.Vector3(0, P('mask').size.y * .42, 0));
   if (anchor === 'eyes') return P('lens_gear').home.clone().add(new THREE.Vector3(0, 0, P('lens_gear').size.z * .6));
   if (anchor === 'face') return P('mask').home.clone().add(new THREE.Vector3(-P('mask').size.x * .32, -P('mask').size.y * .2, P('mask').size.z * .42));
@@ -1522,15 +1715,18 @@ function anchorPos(anchor, focusId) {
   return P(anchor).home.clone();
 }
 function showChoices() {
-  const list = (CHOICES[nav.focus] || []).map((ch, i) => ({ label: ch[2], pos: anchorPos(ch[3], nav.focus), left: i % 2 === 1, onClick: () => chooseItem(ch), hover: hoverIdFor(ch) }));
+  const list = (CHOICES[nav.focus] || []).map((ch, i) => ({ label: ch[2], pos: anchorPos(ch[3], ch[1]), left: i % 2 === 1, onClick: () => chooseItem(ch), hover: hoverIdFor(ch) }));
   buildHots(list, true);
 }
-function focusOn(id) {
+function focusOn(target) {
   if (current !== 'suit' || !views.suit) return;
-  const set = views.suit.set, list = CHOICES[id] || [['panel', id, panelById[id].name, 'self']];
+  const id = regionOf(target); if (!id) return;
+  const set = views.suit.set, list = CHOICES[id];
   if (set.exploded) toggleExplode(set);
-  if (list.length === 1) { nav = { level: 1, focus: id, item: null }; chooseItem(list[0], true); return; }
-  nav = { level: 1, focus: id, item: null }; selPanel = id;
+  nav = { level: 1, focus: id, item: null };
+  if (panelById[target]?.item) { const ch = list.find(c => hoverIdFor(c) === target); if (ch) { chooseItem(ch, true); return; } }
+  if (list.length === 1) { chooseItem(list[0], true); return; }
+  selPanel = target;
   const keep = KEEP[id] || [id];
   setFade(set, keep, id); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45), 1.8);
   controls.autoRotateSpeed = .45; SFX.zoom(true);
@@ -1590,7 +1786,8 @@ function handleModelClick(id) {
   if (nav.level === 0) { if (id === selPanel) focusOn(id); else selectPanel(id); return; }
   if (nav.level === 1) {
     const ch = (CHOICES[nav.focus] || []).find(c => hoverIdFor(c) === id);
-    if (ch) chooseItem(ch); return;
+    if (ch && (ch[0] === 'part' || id === selPanel)) chooseItem(ch); else if (ch) selectPanel(id);
+    return;
   }
   selectPanel(id);
 }
@@ -1598,7 +1795,7 @@ $('#back').addEventListener('click', navBack);
 
 /* ---------- load the split suit and build every suit-based view ---------- */
 const ALLP = PANELS.map(p => p.id), FABRIC = ALLP.filter(id => !panelById[id].logo && !panelById[id].item);
-loadModel('suit2.glb', gltf => {
+loadModel('suit3.glb', gltf => {
   const G = geomsFromGLTF(gltf);
   ['gear__Webshotter', 'gear__material'].forEach(k => { G[k + '_l'] = splitX(G[k], 1); G[k + '_r'] = splitX(G[k], -1); });
   FABRIC.forEach(id => {
@@ -1607,7 +1804,7 @@ loadModel('suit2.glb', gltf => {
   });
   const sSuit = makeSet(G, ALLP, { spread: 1.12, ghost: true });
   setTimeout(tryInserts, 0);
-  finishView('suit', sSuit.root, { set: sSuit, spec: [['PANELS', '9 spandex + 2 logos + lenses + shooters'], ['CLICK', 'select'], ['CLICK AGAIN', 'zoom'], ['E', 'separate']], pad: 1.0, elev: .12 });
+  finishView('suit', sSuit.root, { set: sSuit, spec: [['PIECES', FABRIC.length + ' ATX pattern pieces + 2 logos'], ['CLICK', 'select'], ['CLICK AGAIN', 'zoom'], ['E', 'separate']], pad: 1.0, elev: .12 });
   buildMolds(G);
   applyAllStates(); render();
 }, () => { $('#loading').textContent = 'COULD NOT LOAD THE SUIT MODEL'; });
@@ -2048,7 +2245,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v10'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v11'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;

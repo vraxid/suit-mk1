@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v10';
+const VERSION = 'mk1-v11';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
@@ -17,7 +17,7 @@ const FILES = [
   "models/faceshell.glb",
   "models/logo.glb",
   "models/lenses.glb",
-  "models/suit2.glb",
+  "models/suit3.glb",
   "models/webshooter.glb",
   "vendor/jsm/controls/OrbitControls.js",
   "vendor/jsm/loaders/GLTFLoader.js",
