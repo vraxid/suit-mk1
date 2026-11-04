@@ -1403,33 +1403,73 @@ window.addEventListener('keydown', e => {
 
 /* ---------- the user's printed parts, placed on the suit where they belong ---------- */
 const PRINTED_G = {};
+// where the printed parts sit on the suit (measured from the suit's own lenses and shooters)
+const LENS_POS = { c: new THREE.Vector3(0, 251.8, 13.9), dx: 6.17, scale: .145 };
+const SHOOTER_POS = {   // arm_l is on +x, arm_r on -x; O = outward face, H = towards the hand
+  l: { c: [68.09, 165.16, 16.85], O: [-.532, -.834, -.145], H: [.502, -.449, .739] },
+  r: { c: [-67.98, 165.19, 16.67], O: [.537, -.832, -.14], H: [-.51, -.453, .731] },
+};
+const shooterSide = () => /_r$/.test(nav.focus || '') ? 'r' : 'l';
+function basisQuat(O, H) {   // printed shooter: raw +y is its outer face, raw +z points to the hand
+  const o = O.clone().normalize(), h = H.clone().addScaledVector(o, -H.dot(o)).normalize(), x = new THREE.Vector3().crossVectors(o, h);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, o, h));
+}
+function printedPart(vname, rotX) {
+  const inner = new THREE.Group(), mats = [];
+  PRINTED_G[vname].forEach(geo => { const m = holoMat(INK, 0); mats.push(m); const mesh = new THREE.Mesh(geo, m); mesh.renderOrder = 2; inner.add(mesh); });
+  inner.rotation.x = rotX; inner.updateMatrixWorld(true);
+  const bb = new THREE.Box3().setFromObject(inner); inner.position.copy(bb.getCenter(new THREE.Vector3())).negate();
+  return { inner, mats, size: bb.getSize(new THREE.Vector3()) };
+}
 function tryInserts() {
   const set = views.suit?.set; if (!set) return; set.inserts = set.inserts || {};
   const P = id => set.pieces[id].userData;
-  [['faceshell', 'faceshell'], ['lenses', 'lenses'], ['webshooters', 'webshooter']].forEach(([part, vname]) => {
-    if (set.inserts[part] || !PRINTED_G[vname]) return;
-    const g = new THREE.Group(), inner = new THREE.Group(), mats = [];
-    PRINTED_G[vname].forEach(geo => { const m = holoMat(INK, 0); mats.push(m); const mesh = new THREE.Mesh(geo, m); mesh.renderOrder = 2; inner.add(mesh); });
-    inner.rotation.x = -Math.PI / 2; g.add(inner); inner.updateMatrixWorld(true);
-    const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()), cc = bb.getCenter(new THREE.Vector3());
-    inner.position.copy(cc).negate();
-    const target = part === 'faceshell' ? P('mask').size.y * .95 : part === 'lenses' ? P('lens_gear').size.x * .55 : 15;
-    const sc = target / (part === 'faceshell' ? sz.y : Math.max(sz.x, sz.y, sz.z)); g.scale.setScalar(sc);
-    g.visible = false; set.root.add(g);
-    setFreq(g, sz.y * sc);
-    set.inserts[part] = { g, mats, fade: 0, fadeT: 0, r: sz.length() * sc * .5 };
-  });
+  if (!set.inserts.faceshell && PRINTED_G.faceshell) {
+    const g = new THREE.Group(), { inner, mats, size } = printedPart('faceshell', -Math.PI / 2); g.add(inner);
+    const sc = P('mask').size.y * .95 / size.y; g.scale.setScalar(sc);
+    g.visible = false; set.root.add(g); setFreq(g, size.y * sc);
+    set.inserts.faceshell = { g, mats, fade: 0, fadeT: 0, r: size.length() * sc * .5 };
+  }
+  if (!set.inserts.lenses && PRINTED_G.lenses) {   // the file is the left-eye lens; the right one is its mirror
+    const g = new THREE.Group(), a = printedPart('lenses', -Math.PI / 2), b = printedPart('lenses', -Math.PI / 2);
+    const L = new THREE.Group(), R = new THREE.Group(); L.add(a.inner); R.add(b.inner);
+    L.position.x = LENS_POS.dx; R.position.x = -LENS_POS.dx;
+    L.scale.setScalar(LENS_POS.scale); R.scale.set(-LENS_POS.scale, LENS_POS.scale, LENS_POS.scale);
+    g.add(L, R); g.visible = false; set.root.add(g); setFreq(g, a.size.y * LENS_POS.scale);
+    const w = LENS_POS.dx * 2 + a.size.x * LENS_POS.scale;
+    set.inserts.lenses = { g, mats: [...a.mats, ...b.mats], fade: 0, fadeT: 0, r: Math.hypot(w, a.size.y * LENS_POS.scale, a.size.z * LENS_POS.scale) * .5 };
+  }
+  if (!set.inserts.webshooters && PRINTED_G.webshooter) {
+    const g = new THREE.Group(), { inner, mats, size } = printedPart('webshooter', 0); g.add(inner);
+    const sc = .16; g.scale.setScalar(sc);
+    g.visible = false; set.root.add(g); setFreq(g, size.z * sc);
+    set.inserts.webshooters = { g, mats, fade: 0, fadeT: 0, r: size.length() * sc * .5, turn: 0, turnT: 0 };
+  }
 }
 function insertAnchor(part) {
   const set = views.suit.set, P = id => set.pieces[id].userData;
   if (part === 'faceshell') return P('mask').home.clone().add(new THREE.Vector3(0, -P('mask').size.y * .04, P('mask').size.z * .12));
-  if (part === 'lenses') return P('lens_gear').home.clone();
-  return /_r$/.test(nav.focus || '') ? new THREE.Vector3(-67, 166, 18) : new THREE.Vector3(67, 166, 18);
+  if (part === 'lenses') return LENS_POS.c.clone();
+  return new THREE.Vector3(...SHOOTER_POS[shooterSide()].c);
+}
+function unturn(ins) { if (ins.q0 && ins.turnT) { ins.turnFrom = ins.turn; ins.turnT = 0; ins.turnStart = clock.getElapsedTime(); } }
+// the shooter starts out exactly as it sits on the wrist, then turns to face you as the camera closes in
+function aimShooter(ins, camDir) {
+  const sp = SHOOTER_POS[shooterSide()];
+  ins.q0 = basisQuat(new THREE.Vector3(...sp.O), new THREE.Vector3(...sp.H));
+  const face = new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
+  ins.q1 = basisQuat(face, new THREE.Vector3(0, 1, 0));
+  ins.g.quaternion.copy(ins.q0); ins.turn = 0; ins.turnT = 1; ins.turnStart = clock.getElapsedTime();
 }
 function stepInserts(set, dt) {
   Object.values(set.inserts || {}).forEach(ins => {
     ins.fade += (ins.fadeT - ins.fade) * Math.min(1, dt * (ins.fadeT > ins.fade ? 1.6 : 3));
     ins.g.visible = ins.fade > .015;
+    if (ins.q0) {
+      const x = THREE.MathUtils.clamp((clock.getElapsedTime() - ins.turnStart - (ins.turnT ? .35 : 0)) / (ins.turnT ? 2.1 : 1.2), 0, 1), e = ease(x);
+      ins.turn = ins.turnT ? e : ins.turnFrom * (1 - e);
+      ins.g.quaternion.slerpQuaternions(ins.q0, ins.q1, ins.turn);
+    }
     ins.mats.forEach(m => { m.uniforms.uOpacity.value = .62 * ins.fade; });
   });
 }
@@ -1462,7 +1502,7 @@ function frameDist(box, pad = 1.5) {
 function setFade(set, keep, center) {
   set.fadeT = {}; Object.keys(set.pieces).forEach(id => { set.fadeT[id] = !keep || keep.includes(id) ? 1 : 0; });
   set.focusC = keep ? (center?.isVector3 ? center.clone() : set.pieces[center].userData.home.clone()) : null;
-  if (!keep || keep.length) Object.values(set.inserts || {}).forEach(ins => { ins.fadeT = 0; });
+  if (!keep || keep.length) Object.values(set.inserts || {}).forEach(ins => { ins.fadeT = 0; unturn(ins); });
 }
 function anchorPos(anchor, focusId) {
   const s = views.suit.set, P = id => s.pieces[id].userData;
@@ -1501,7 +1541,8 @@ function chooseItem(ch, direct) {
     selPanel = null;
     const ins = set.inserts[id], at = insertAnchor(id);
     setFade(set, [], at); ins.g.position.copy(at); ins.fadeT = 1;
-    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), id === 'faceshell' ? .92 : 1.2), 2.2);   // part fills most of the view
+    if (id === 'webshooters') aimShooter(ins, camera.position.clone().sub(controls.target).normalize());
+    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), id === 'faceshell' ? .92 : id === 'webshooters' ? 1.3 : 1.2), 2.2);   // part fills most of the view
     controls.autoRotateSpeed = .35; SFX.zoom(true, true);
   } else {
     // the focused region dissolves and the printed part materialises in its place
@@ -1519,7 +1560,7 @@ function navBack() {
   const set = views.suit?.set; if (!set) return;
   if (nav.level === 2 && (CHOICES[nav.focus] || []).length > 1) {
     const wasPart = nav.item.type === 'part' && currentView !== views.suit;
-    if (set.inserts?.[nav.item.id]) set.inserts[nav.item.id].fadeT = 0;
+    if (set.inserts?.[nav.item.id]) { set.inserts[nav.item.id].fadeT = 0; unturn(set.inserts[nav.item.id]); }
     nav = { level: 1, focus: nav.focus, item: null };
     if (wasPart) { showView('suit'); const keep = KEEP[nav.focus] || [nav.focus], b = piecesBox(set, keep), c = b.getCenter(new THREE.Vector3()), dir = new THREE.Vector3(.48, .12, .87).normalize(); controls.target.copy(c); camera.position.copy(c).addScaledVector(dir, frameDist(b, 1.9)); resize.moved = true; }
     const keep = KEEP[nav.focus] || [nav.focus]; selPanel = nav.focus;
@@ -1999,7 +2040,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v8'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v9'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
