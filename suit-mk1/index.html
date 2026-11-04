@@ -1066,8 +1066,8 @@ function renderLabels() {
 
 function renderInspector() {
   const box = $('#insp'); if (!box) return;
-  const id = hoverPanel || selPanel, pl = inspectIds();
-  box.textContent = ''; box.classList.toggle('live', !!hoverPanel);
+  const hp = hoverFromList ? null : hoverPanel, id = hp || selPanel, pl = inspectIds();
+  box.textContent = ''; box.classList.toggle('live', !!hp);
   if (!id || !pl.includes(id)) {
     box.append(el('div', 'ic', 'Nothing selected'), el('div', 'hint', current === 'suit' && nav.level === 0 ? 'Hover a part of the model to see its info. Click it to select it, click it again to zoom in. Use Separate parts to lift the panels off.' : 'Hover a part on the model to see its info.'));
     return;
@@ -1076,14 +1076,14 @@ function renderInspector() {
   const p = panelById[id], st = panelStatus(id), info = PANEL_INFO[id];
   if (p.item) {
     const pr = progress(byId[p.part]);
-    const ic = el('div', 'ic'); ic.append(document.createTextNode(p.code + ' · Printed part'), el('em', '', hoverPanel ? 'Hover' : 'Selected'));
+    const ic = el('div', 'ic'); ic.append(document.createTextNode(p.code + ' · Printed part'), el('em', '', hoverPanel && !hoverFromList ? 'Hover' : 'Selected'));
     box.append(ic, el('div', 'in', p.name));
     const r2 = el('div', 'row2'); r2.append(el('span', 'chip st-' + pr.st, ST_LABEL[pr.st] + ' · ' + pr.d + ' of ' + pr.n)); box.append(r2);
     const open = el('button', 'btn', 'Open ' + p.name.toLowerCase() + ' ›'); open.type = 'button'; open.addEventListener('click', () => { const ch = nav.level === 1 && (CHOICES[nav.focus] || []).find(c => hoverIdFor(c) === id); if (ch) chooseItem(ch); else focusOn(id); }); box.append(open);
     box.append(el('div', 'hint', 'Click it again on the model to open its sheet.'));
     return;
   }
-  const ic = el('div', 'ic'); ic.append(document.createTextNode(p.code + ' · ' + (p.logo ? 'Silicone cast' : 'Spandex panel')), el('em', '', hoverPanel ? 'Hover' : 'Selected'));
+  const ic = el('div', 'ic'); ic.append(document.createTextNode(p.code + ' · ' + (p.logo ? 'Silicone cast' : 'Spandex panel')), el('em', '', hoverPanel && !hoverFromList ? 'Hover' : 'Selected'));
   box.append(ic, el('div', 'in', p.name));
   const r2 = el('div', 'row2');
   if (p.logo) { const sw = el('span', 'swatch'); const i = el('i'); i.style.background = '#0b0d12'; i.style.border = '1px solid #fff'; sw.append(i, document.createTextNode('black silicone')); r2.append(sw); }
@@ -1108,7 +1108,7 @@ function renderInspector() {
 }
 function regionInspector(box, id) {
   const r = REGIONS[id], c = regionCounts(id);
-  const ic = el('div', 'ic'); ic.append(document.createTextNode(r.code + ' · ' + c.n + ' pattern piece' + (c.n === 1 ? '' : 's')), el('em', '', hoverPanel ? 'Hover' : 'Selected'));
+  const ic = el('div', 'ic'); ic.append(document.createTextNode(r.code + ' · ' + c.n + ' pattern piece' + (c.n === 1 ? '' : 's')), el('em', '', hoverPanel && !hoverFromList ? 'Hover' : 'Selected'));
   box.append(ic, el('div', 'in', r.name));
   const r2 = el('div', 'row2'); r2.append(el('span', 'chip ' + (c.sewn === c.n ? 'st-done' : c.painted ? 'st-prog' : 'st-none'), c.painted + '/' + c.n + ' painted · ' + c.sewn + '/' + c.n + ' sewn')); box.append(r2);
   const ul = el('ul', 'mini-pieces');
@@ -1143,9 +1143,11 @@ function renderQbar() {
 }
 function render() { renderParts(); renderDetail(); renderInspector(); renderQbar(); renderLabels(); }
 let hoverPanel = null, selPanel = null;
+let hoverFromList = false;
 function setHover(id, from) {
   if (hoverPanel === id) return;
-  hoverPanel = id; renderInspector(); renderQbar(); updateGlow();
+  const wasList = hoverFromList; hoverPanel = id; hoverFromList = !!id && from === 'list';
+  if (!(hoverFromList || (wasList && !id))) renderInspector(); renderQbar(); updateGlow();
   if (id) SFX.hover(id);
   const hl = expandIds(id); document.querySelectorAll('#board li').forEach(li => li.classList.toggle('hl', li.dataset.panel === id || hl.includes(li.dataset.panel)));
 }
@@ -1405,7 +1407,7 @@ function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatL
   });
   // where each piece floats to: its region moves out as a block, then each pattern piece lifts off along its own outside
   const rc = {};
-  ids.forEach(id => { const r = panelById[id].region; if (r) (rc[r] = rc[r] || new THREE.Box3()).expandByPoint(set.pieces[id].userData.home); });
+  ids.forEach(id => { const p = panelById[id]; if (p.region && !p.item && !p.logo) (rc[p.region] = rc[p.region] || new THREE.Box3()).expandByPoint(set.pieces[id].userData.home); });
   ids.forEach(id => {
     const p = panelById[id], u = set.pieces[id].userData, R = REGIONS[p.region];
     if (R) u.dir.set(...R.dir).normalize().multiplyScalar(R.d);
@@ -1491,7 +1493,7 @@ function syncSepButton(set) { const b = $('#sep'); b.setAttribute('aria-pressed'
 function toggleExplode(set) {
   const t = clock.getElapsedTime(); set.exploded = !set.exploded;
   const order = set.exploded ? set.order : [...set.order].reverse();
-  order.forEach((id, i) => { const u = set.pieces[id].userData; u.from = u.kCur; u.to = set.exploded ? 1 : 0; u.start = t + i * .07; });
+  order.forEach((id, i) => { const u = set.pieces[id].userData; u.from = u.kCur; u.to = set.exploded ? 1 : 0; u.start = t + i / Math.max(1, order.length - 1) * .45; });
   if (set.scan) set.scan.t0 = t;
   syncSepButton(set); SFX.separate(set.exploded);
 }
@@ -1502,7 +1504,7 @@ function stepSets(dt, t) {
     let kmax = 0;
     Object.entries(set.pieces).forEach(([id, grp]) => {
       const u = grp.userData;
-      const x = THREE.MathUtils.clamp((t - u.start) / 1.15, 0, 1);
+      const x = THREE.MathUtils.clamp((t - u.start) / .7, 0, 1);
       const e = u.to > u.from ? backOut(x) : ease(x);
       u.kCur = u.from + (u.to - u.from) * e; kmax = Math.max(kmax, u.kCur);
       const k = THREE.MathUtils.clamp(u.kCur, 0, 1.2);
@@ -1701,7 +1703,7 @@ function frameDist(box, pad = 1.5) {
 function setFade(set, keep, center) {
   set.fadeT = {}; Object.keys(set.pieces).forEach(id => { set.fadeT[id] = !keep || keep.includes(id) ? 1 : 0; });
   set.focusC = keep ? (center?.isVector3 ? center.clone() : REGIONS[center] ? piecesBox(set, KEEP[center]).getCenter(new THREE.Vector3()) : set.pieces[center].userData.home.clone()) : null;
-  set.locT = {}; if (keep && REGIONS[center]) keep.forEach(id => { set.locT[id] = 1; });
+  set.locT = {}; if (keep && REGIONS[center] && regionPieces(center).length > 1) keep.forEach(id => { if (!panelById[id]?.item) set.locT[id] = 1; });
   if (!keep || keep.length) Object.values(set.inserts || {}).forEach(ins => { ins.fadeT = 0; unturn(ins); });
 }
 function anchorPos(anchor, focusId) {
@@ -2011,6 +2013,23 @@ const SFX = (() => {
     g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .3); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
     o.connect(fl); fl.connect(g); g.connect(sfxBus); o.start(now); o.stop(now + dur + .05);
   }
+  function tick({ t = 0, f = 3200, vol = .03, p = 0 } = {}) {   // a tiny mechanical latch: noise click + metal blip
+    const now = ctx.currentTime + t, s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = 9;
+    g.gain.setValueAtTime(vol, now); g.gain.exponentialRampToValueAtTime(.0001, now + .035);
+    s.connect(fl); fl.connect(g); pan(g, p).connect(sfxBus); s.start(now, Math.random()); s.stop(now + .05);
+    const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'square'; o.frequency.setValueAtTime(f * .5, now); o.frequency.exponentialRampToValueAtTime(f * .36, now + .03);
+    og.gain.setValueAtTime(vol * .18, now); og.gain.exponentialRampToValueAtTime(.0001, now + .03);
+    o.connect(og); pan(og, p).connect(sfxBus); o.start(now); o.stop(now + .05);
+  }
+  function surge(f1, f2, { t = 0, dur = .6, vol = .05 } = {}) {   // a sawtooth power surge through a sweeping filter
+    const now = ctx.currentTime + t, o = ctx.createOscillator(), o2 = ctx.createOscillator(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o2.type = 'sawtooth'; o.frequency.setValueAtTime(f1, now); o.frequency.exponentialRampToValueAtTime(f2, now + dur);
+    o2.frequency.setValueAtTime(f1 * 1.006, now); o2.frequency.exponentialRampToValueAtTime(f2 * 1.006, now + dur);
+    fl.type = 'lowpass'; fl.Q.value = 6; fl.frequency.setValueAtTime(f1 * 3, now); fl.frequency.exponentialRampToValueAtTime(f2 * 5, now + dur);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .25); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    o.connect(fl); o2.connect(fl); fl.connect(g); g.connect(sfxBus); o.start(now); o2.start(now); o.stop(now + dur + .05); o2.stop(now + dur + .05);
+  }
   // each part and panel keeps its own note, all from one calm key (D minor pentatonic)
   const KEY = [293.66, 349.23, 392, 440, 523.25, 587.33, 698.46, 783.99];
   const VOICE = { suit: 0, body: 1, hood: 5, faceshell: 4, lenses: 7, logos: 3, webshooters: 6, printer: 2 };
@@ -2043,8 +2062,16 @@ const SFX = (() => {
     },
     separate(apart) {
       if (!ok()) return;
-      if (apart) { air({ dur: .7, vol: .06, from: 6000, to: 1800, q: .4, type: 'highpass' }); servo(260, 620, { t: .05, dur: .9 }); pad(73.4, { dur: 1.6, vol: .09, attack: .25 }); ping(1174.7, { t: .45, dur: 1.2, vol: .02 }); }
-      else { servo(620, 240, { dur: .8 }); air({ dur: .6, vol: .04, from: 1800, to: 5000, q: .4, type: 'highpass' }); thump({ t: .72, vol: .13, f: 80 }); air({ t: .72, dur: .09, vol: .05, from: 2200, to: 1600, q: 5 }); ping(587.33, { t: .75, dur: .9, vol: .03 }); }
+      const latches = n => { for (let i = 0; i < n; i++) tick({ t: .04 + i / (n - 1) * .46 + Math.random() * .012, f: 2400 + Math.random() * 2600, vol: .022 + Math.random() * .014, p: (Math.random() * 2 - 1) * .7 }); };
+      if (apart) {   // unlock: a hiss of pressure, latches popping in a ripple, a rising surge, then a bright settle
+        thump({ vol: .1, f: 62 }); air({ dur: .22, vol: .07, from: 9000, to: 2500, q: .5, type: 'highpass' });
+        latches(16); surge(70, 220, { t: .02, dur: .62, vol: .045 }); servo(300, 900, { t: .05, dur: .55, vol: .03 });
+        pad(73.4, { dur: 1.3, vol: .08, attack: .1 }); [0, 1, 2].forEach(i => ping(880 * Math.pow(2, i * 5 / 12), { t: .5 + i * .06, dur: .9, vol: .022 }));
+      } else {       // lock: falling surge, latches ripple in, one heavy clamp
+        surge(220, 60, { dur: .55, vol: .04 }); servo(900, 280, { dur: .5, vol: .028 }); latches(14);
+        thump({ t: .55, vol: .15, f: 78 }); tick({ t: .55, f: 1800, vol: .06 }); air({ t: .56, dur: .25, vol: .04, from: 4000, to: 9000, q: .5, type: 'highpass' });
+        ping(587.33, { t: .6, dur: .9, vol: .03 }); ping(880, { t: .64, dur: 1, vol: .02 });
+      }
     },
     zoom(inward, soft) {
       if (!ok()) return;
@@ -2245,7 +2272,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v11'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v12'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;

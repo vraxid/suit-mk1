@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v11';
+const VERSION = 'mk1-v12';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
