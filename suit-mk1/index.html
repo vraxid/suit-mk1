@@ -64,6 +64,20 @@ header.title {
 .ctrls { position: absolute; top: 8px; right: 12px; display: flex; gap: 8px; align-items: center; }
 .ctl { background: rgba(6,21,39,.85); border: 1px solid var(--dim); color: var(--line); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
 .ctl:hover { border-color: var(--line); }
+/* E.V.: the suit's voice. Captions float at the bottom while she talks */
+.ev { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateY(16px); z-index: 60; display: flex; align-items: center; gap: 10px; max-width: min(620px, calc(100vw - 28px));
+  background: rgba(6,21,39,.94); border: 1px solid var(--line); box-shadow: 0 0 24px rgba(99,211,255,.25); padding: 9px 14px 9px 11px; color: var(--text); text-align: left; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .35s, transform .35s; font: inherit; }
+.ev.on { opacity: 1; transform: none; pointer-events: auto; }
+.ev .evn { font-family: var(--display); font-weight: 700; font-size: 11px; letter-spacing: .2em; color: var(--line); white-space: nowrap; }
+.ev .evt { font-size: 13px; line-height: 1.4; color: #fff; }
+.evo { display: flex; gap: 2px; align-items: center; height: 18px; }
+.evo i { width: 3px; height: 4px; background: var(--line); box-shadow: 0 0 6px var(--line); }
+.ev.talk .evo i { animation: evw .9s ease-in-out infinite; }
+.ev.talk .evo i:nth-child(2) { animation-delay: -.15s; } .ev.talk .evo i:nth-child(3) { animation-delay: -.3s; } .ev.talk .evo i:nth-child(4) { animation-delay: -.45s; } .ev.talk .evo i:nth-child(5) { animation-delay: -.6s; }
+@keyframes evw { 0%, 100% { height: 4px; } 50% { height: 17px; } }
+@media (prefers-reduced-motion: reduce) { .ev.talk .evo i { animation: none; height: 10px; } }
+.evset { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
 .ctl[aria-pressed="false"] { color: var(--dim); }
 .sync { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; color: var(--dim); }
 .sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); display: inline-block; }
@@ -393,11 +407,13 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
     <div class="ctrls">
       <button class="ctl" id="snd" type="button" aria-pressed="true">Sound on</button>
       <button class="ctl" id="mus" type="button" aria-pressed="false" hidden>Music off</button>
+      <button class="ctl" id="evb" type="button" aria-pressed="true">E.V. on</button>
       <button class="fsb" id="fsb" type="button" hidden>Full screen</button>
       <div class="sync" id="sync"><i></i><span>Connecting</span></div>
     </div>
   </header>
   <div class="banner" id="banner" role="status"></div>
+  <button class="ev" id="ev" type="button" aria-live="polite" aria-label="E.V. status report"><span class="evo" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="evn">E.V.</span><span class="evt" id="evt"></span></button>
 
   <section class="timeline corner" aria-label="Build schedule">
     <div class="tl-head"><span>Schedule · Nov 2026 – Feb 2027</span><span>Now: <b id="tl-now">–</b></span></div>
@@ -661,7 +677,7 @@ async function toggleTask(partId, taskId, on) {
   if (!db) return;
   const cur = { ...(state.done[partId] || {}) };
   if (on) cur[taskId] = new Date().toISOString(); else delete cur[taskId];
-  state.done[partId] = cur; render(); SFX.step(on);
+  state.done[partId] = cur; render(); SFX.step(on); EV.task(partId, taskId, on);
   const label = (byId[partId].tasks.find(t => t[0] === taskId) || [, taskId])[1];
   try {
     await serial('parts/' + partId, () => db.doc('parts/' + partId).set({ done: cur, updatedAt: new Date().toISOString() }));
@@ -687,7 +703,7 @@ async function setStep(id, field, on) {
   cur[field] = on;
   if (field === last && on) cur[first] = true;        // sewn implies painted, glued implies cast
   if (field === first && !on) cur[last] = false;
-  state.panels[id] = cur; render(); applyAllStates(); SFX.step(on, field === last);
+  state.panels[id] = cur; render(); applyAllStates(); SFX.step(on, field === last); EV.step(id, field, on);
   const label = stepsOf(p).find(x => x[0] === field)[1];
   try {
     await serial('panels/' + id, () => db.doc('panels/' + id).set({ ...cur, updatedAt: new Date().toISOString() }));
@@ -706,7 +722,7 @@ async function addJob(job) {
   catch (e) { writeFail(e); }
 }
 async function setJob(id, status) {
-  if (!db) return; SFX.job(status);
+  if (!db) return; SFX.job(status); EV.job(id, status);
   try {
     await serial('jobs/' + id, () => db.doc('jobs/' + id).update({ status, updatedAt: new Date().toISOString() }));
     const j = state.jobs.find(x => x.id === id);
@@ -897,7 +913,8 @@ function atxScale(m) {   // m in inches
   return { h, w, scale: w ? (h + w) / 2 : h };
 }
 async function saveMeasure(measure) {
-  if (!db) return; state.measure = measure; render();
+  if (!db) return; const had = atxScale(state.measure)?.scale; state.measure = measure; render();
+  const r = atxScale(measure); if (r && r.scale !== had) EV.say('Print the pattern at ' + Math.round(r.scale * 100) + ' percent' + (r.w ? '.' : '. Give me your waist and I can fine-tune that.'), { interrupt: true });
   try { await serial('parts/sizing', () => db.doc('parts/sizing').set({ done: {}, measure, updatedAt: new Date().toISOString() })); }
   catch (e) { writeFail(e); }
 }
@@ -934,6 +951,18 @@ function sizingBlock(box) {
     sec.append(o);
   }
   box.append(sec);
+}
+function evBlock(box) {
+  const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('E.V.'), el('span', '', EV.on ? 'suit voice on' : 'muted')); sec.append(h);
+  const row = el('div', 'evset'), l = el('label', 'f'); l.append(document.createTextNode('Voice'));
+  const sel = el('select'); sel.id = 'ev-voice';
+  const vs = EV.voices();
+  if (!vs.length) sel.append(el('option', '', 'Default voice'));
+  vs.forEach(v => { const o = el('option', '', v.name.replace(/\s*\(.*?\)\s*$/, '') + (/\((Enhanced|Premium)\)/.test(v.name) ? ' · enhanced' : '') + ' · ' + v.lang); o.value = v.name; if (v.name === EV.voiceName()) o.selected = true; sel.append(o); });
+  sel.addEventListener('change', () => { EV.setVoice(sel.value); EV.say('This is how I sound now, Rafik.', { interrupt: true }); });
+  l.append(sel);
+  const t = el('button', 'btn', 'Status report'); t.type = 'button'; t.addEventListener('click', () => EV.brief(true));
+  row.append(l, t); sec.append(row); box.append(sec);
 }
 function tasksBlock(box, partId, title) {
   const p = byId[partId]; if (!p.tasks.length) return;
@@ -999,7 +1028,7 @@ function renderDetail() {
   if (current === 'logos' || current === 'printer') return partSheet(box, current, keepNote);
   if (nav.level === 0) {
     headBlock(box, 'SM-00', 'ASSEMBLY', 'Full suit', 'Click a part to select it. Click it again to zoom in and choose what to open.', progChip(progressOf(SUITPARTS)));
-    inspectorBlock(box); regionBoardBlock(box); sizingBlock(box);
+    inspectorBlock(box); regionBoardBlock(box); sizingBlock(box); evBlock(box);
     tasksBlock(box, 'body', 'Suit build'); tasksBlock(box, 'suit', 'Final steps');
     return logBlock(box, null, 'suit', keepNote, 'Build log · everything');
   }
@@ -2113,6 +2142,7 @@ const SFX = (() => {
     },
     introDone() { if (!musicOn && musicBus) { musicBus.gain.setTargetAtTime(0, ctx.currentTime, .8); setTimeout(() => { if (!musicOn) musicEl.pause(); }, 3000); } },
     skipTo(sec) { if (musicEl) musicEl.currentTime = sec; },
+    duck(d) { if (!musicBus || !musicOn || !soundOn) return; musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(d ? MUSIC_VOL * .3 : MUSIC_VOL, ctx.currentTime, d ? .15 : .6); },
     setMusic(v, quiet) {
       musicOn = v; if (!quiet) keep('mk1-music', v ? 'on' : 'off'); init(); if (!musicEl || !musicBus) return;
       if (v && soundOn) { if (musicEl.currentTime < MUSIC_START) musicEl.currentTime = MUSIC_START; musicEl.play().catch(() => {}); musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, .8); }
@@ -2130,6 +2160,122 @@ const SFX = (() => {
   document.addEventListener('musicready', () => { mb.hidden = !SFX.musicAvailable; paint(); });
   paint();
   document.addEventListener('pointerover', e => { if (e.pointerType === 'mouse' && e.target.closest?.('.part, .btn, .mini, .step, .sep, .hot, .board li, .fsb, .ctl')) SFX.uiHover(); });
+})();
+
+/* ================= E.V.: the suit's voice ================= */
+const EV = (() => {
+  const syn = window.speechSynthesis, store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const keep = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  let on = store('mk1-ev') !== 'off', voice = null, unlocked = false, hideT = 0, pending = null;
+  // female English voices, best first; whatever the device has
+  const PREF = ['Ava (Premium)', 'Zoe (Premium)', 'Ava (Enhanced)', 'Zoe (Enhanced)', 'Samantha (Enhanced)', 'Serena (Enhanced)', 'Allison (Enhanced)', 'Susan (Enhanced)',
+    'Microsoft Libby Online', 'Microsoft Sonia Online', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Google UK English Female', 'Google US English',
+    'Samantha', 'Ava', 'Allison', 'Serena', 'Karen', 'Moira', 'Tessa', 'Zoe', 'Susan', 'Victoria', 'Kate', 'Fiona', 'Microsoft Zira'];
+  const FEMALE = /female|woman|samantha|ava|allison|serena|karen|moira|tessa|zoe|susan|victoria|kate|fiona|libby|sonia|aria|jenny|zira|hazel|susan|emma|natasha|clara|catherine|joanna|salli|kendra|kimberly|ivy/i;
+  const all = () => (syn ? syn.getVoices() : []).filter(v => /^en/i.test(v.lang));
+  const isFemale = v => FEMALE.test(v.name.replace(/\bmale\b/i, '')) && !/\bmale\b/i.test(v.name) || v.name === 'Google US English';
+  const voices = () => all().filter(isFemale).sort((a, b) => a.name.localeCompare(b.name));
+  function pick() {
+    const list = all(), want = store('mk1-ev-voice');
+    voice = list.find(v => v.name === want) || PREF.map(n => list.find(v => v.name === n || v.name.startsWith(n + ' '))).find(Boolean) || list.find(isFemale) || list[0] || null;
+  }
+  if (syn) { pick(); syn.addEventListener?.('voiceschanged', () => { pick(); if (current === 'suit' && nav.level === 0) renderDetail(); }); }
+  // iOS only lets speech start from a tap; the first tap anywhere unlocks it, then anything queued plays
+  const unlock = () => {
+    if (unlocked || !syn) return; unlocked = true;
+    const u = new SpeechSynthesisUtterance(' '); u.volume = 0; syn.speak(u);
+    if (pending) { const p = pending; pending = null; setTimeout(() => say(p.text, p.opts), 250); }
+  };
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
+  const box = () => $('#ev'), txt = () => $('#evt');
+  function caption(text, talking) {
+    const b = box(); if (!b) return; clearTimeout(hideT);
+    txt().textContent = text; b.classList.add('on'); b.classList.toggle('talk', !!talking);
+  }
+  function hideSoon(ms) { clearTimeout(hideT); hideT = setTimeout(() => box()?.classList.remove('on', 'talk'), ms); }
+  function say(text, opts = {}) {
+    if (!on || !text) return;
+    const voiced = syn && SFX.soundOn;
+    caption(text, voiced);
+    if (!voiced) { hideSoon(1800 + text.length * 45); return; }
+    if (!unlocked) { pending = { text, opts }; hideSoon(1800 + text.length * 45); return; }   // browsers only start speech after a tap
+    if (opts.interrupt) syn.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-GB';
+    u.rate = 1.02; u.pitch = 1.06; u.volume = 1;
+    u.onstart = () => { caption(text, true); SFX.duck(true); };
+    const t0 = performance.now(), read = 1800 + text.length * 45;
+    const end = () => { box()?.classList.remove('talk'); SFX.duck(false); hideSoon(Math.max(1400, read - (performance.now() - t0))); };   // if speech fails, the caption stays long enough to read
+    u.onend = end; u.onerror = end;
+    syn.speak(u);
+    hideSoon(4000 + text.length * 90);   // in case the device never reports the end
+  }
+  // ---- what she knows ----
+  const pick1 = a => a[Math.floor(Math.random() * a.length)];
+  const counts = () => { const n = FABRIC.length; return { n, painted: FABRIC.filter(i => state.panels[i]?.painted).length, sewn: FABRIC.filter(i => state.panels[i]?.sewn).length }; };
+  const dayMs = 864e5, dayOf = s => new Date(s + 'T00:00:00');
+  function scheduleLine(c) {
+    const now = new Date(), i = PHASES.findIndex(ph => now >= dayOf(ph.s) && now < new Date(dayOf(ph.e).getTime() + dayMs));
+    if (now < dayOf(PHASES[0].s)) return 'The build starts ' + fmtDate(PHASES[0].s + 'T12:00') + '.';
+    if (i < 0) return c.sewn === c.n ? 'The suit is finished. Not bad, Rafik.' : 'We are past the target date. Let\'s close it out.';
+    const ph = PHASES[i], label = ph.n.replace(/^P\d · /, ''), until = new Date(ph.e + 'T12:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const name = ({ 'Pattern': 'the pattern phase', 'Cut & puff paint': 'the cutting and puff painting phase', 'Sew the body': 'the sewing phase', 'Mask': 'the mask phase' })[label] || label.toLowerCase();
+    if (ph.pause) return 'It\'s the finals pause until ' + until + '. The suit can wait. Go study.';
+    const frac = (now - dayOf(ph.s)) / (dayOf(ph.e) - dayOf(ph.s) + dayMs);
+    const track = (done, label) => { const want = Math.round(frac * c.n), gap = want - done;
+      return gap > 3 ? 'You\'re about ' + gap + ' panels behind on ' + label + '.' : gap < -3 ? 'You\'re ahead of schedule on ' + label + '.' : 'Right on schedule.'; };
+    if (/paint/i.test(ph.n)) return 'We\'re in ' + name + ' until ' + until + '. ' + track(c.painted, 'painting');
+    if (/sew/i.test(ph.n)) return 'We\'re in ' + name + ' until ' + until + '. ' + track(c.sewn, 'sewing');
+    return 'We\'re in ' + name + ' until ' + until + '.';
+  }
+  function nextTask() { const t = byId.body.tasks.find(([id]) => !state.done.body?.[id]); return t ? 'Next up: ' + t[1].charAt(0).toLowerCase() + t[1].slice(1) + '.' : ''; }
+  function brief(manual) {
+    const h = new Date().getHours(), c = counts();
+    const hello = manual ? pick1(['Status report.', 'Here\'s where we are.', 'Quick update.']) : (h < 5 ? 'Working late again, Rafik.' : h < 12 ? 'Good morning, Rafik.' : h < 18 ? 'Good afternoon, Rafik.' : 'Good evening, Rafik.');
+    const intro = !manual && store('mk1-ev-met') !== '1' ? ' I\'m E.V. I\'ll keep track of the suit with you.' : '';
+    if (!manual) keep('mk1-ev-met', '1');
+    const prog = c.sewn ? c.sewn + ' of ' + c.n + ' panels sewn, ' + c.painted + ' painted.' : c.painted ? c.painted + ' of ' + c.n + ' panels painted.' : 'No panels painted yet.';
+    const days = Math.ceil((dayOf(TARGET) - new Date()) / dayMs), printing = state.jobs.filter(j => j.status === 'printing');
+    const extra = printing.length ? (printing.length === 1 ? ' One print is running: ' + printing[0].name + '.' : ' ' + printing.length + ' prints are running.') : '';
+    say(hello + intro + ' ' + prog + ' ' + scheduleLine(c) + (c.painted < 3 ? ' ' + nextTask() : '') + extra + (days > 0 ? ' ' + days + ' days to target.' : ''), { interrupt: manual });
+  }
+  function step(id, field, onState) {
+    const p = panelById[id]; if (!p || !onState) return;
+    const name = p.name.charAt(0).toLowerCase() + p.name.slice(1), c = counts();
+    if (field === 'painted') return say(pick1([p.name + ', painted. Let it cure before you sew it.', 'Painted. That\'s ' + c.painted + ' of ' + c.n + '.', p.name + ' is ready to sew once it\'s dry.']), { interrupt: true });
+    if (field === 'sewn') {
+      if (c.sewn === c.n) return say('That\'s every panel sewn, Rafik. Time for a fitting.', { interrupt: true });
+      const r = p.region && REGIONS[p.region], rc = r ? regionCounts(p.region) : null;
+      if (rc && rc.sewn === rc.n && rc.n > 1) return say('That finishes the ' + r.name.toLowerCase() + '. ' + c.sewn + ' of ' + c.n + ' sewn.', { interrupt: true });
+      return say(pick1([p.name + ', sewn. ' + c.sewn + ' of ' + c.n + '.', 'Sewn. ' + (c.n - c.sewn) + ' to go.', 'Nice and clean. ' + c.sewn + ' of ' + c.n + ' sewn.']), { interrupt: true });
+    }
+    if (field === 'cast') return say(p.name + ', cast. Glue it on once the panel is stretched.', { interrupt: true });
+    if (field === 'glued') return say(p.name + ' is on the suit.', { interrupt: true });
+  }
+  function task(partId, taskId, onState) {
+    if (!onState) return; const pr = progress(byId[partId]);
+    if (pr.st === 'done') return say(byId[partId].name + ': everything done.', { interrupt: true });
+    const next = byId[partId].tasks.find(([id]) => !state.done[partId]?.[id]);
+    say(pick1(['Done.', 'Checked off.', 'Got it.']) + (next ? ' Next: ' + next[1].charAt(0).toLowerCase() + next[1].slice(1) + '.' : ''), { interrupt: true });
+  }
+  function job(id, status) {
+    const j = state.jobs.find(x => x.id === id); if (!j) return;
+    if (status === 'printing') say('Starting ' + j.name + '.', { interrupt: true });
+    else if (status === 'done') say(j.name + ' finished printing.', { interrupt: true });
+    else if (status === 'failed') say(j.name + ' failed. Check the first layer and requeue it when you\'re ready.', { interrupt: true });
+  }
+  function setOn(v) { on = v; keep('mk1-ev', v ? 'on' : 'off'); if (!v) { syn?.cancel(); box()?.classList.remove('on', 'talk'); SFX.duck(false); } }
+  return {
+    get on() { return on; }, setOn, say, brief, step, task, job, voices,
+    voiceName: () => voice?.name, setVoice(name) { keep('mk1-ev-voice', name); pick(); },
+  };
+})();
+(function () {
+  const b = $('#evb'), paint = () => { b.textContent = 'E.V. ' + (EV.on ? 'on' : 'off'); b.setAttribute('aria-pressed', EV.on ? 'true' : 'false'); };
+  b.addEventListener('click', () => { EV.setOn(!EV.on); paint(); if (EV.on) EV.say('I\'m here.', { interrupt: true }); if (current === 'suit' && nav.level === 0) renderDetail(); });
+  $('#ev').addEventListener('click', () => EV.brief(true));
+  paint();
+  document.addEventListener('introdone', () => setTimeout(() => EV.brief(false), 1200), { once: true });
 })();
 
 /* ================= startup sequence: synced to the first 12 s of the theme ================= */
@@ -2272,7 +2418,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v12'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v13'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
