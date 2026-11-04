@@ -2181,12 +2181,14 @@ const EV = (() => {
   }
   if (syn) { pick(); syn.addEventListener?.('voiceschanged', () => { pick(); if (current === 'suit' && nav.level === 0) renderDetail(); }); }
   // iOS only lets speech start from a tap; the first tap anywhere unlocks it, then anything queued plays
+  // (iPhone only counts the end of a tap, not the touch-down, so listen for click / touchend)
   const unlock = () => {
     if (unlocked || !syn) return; unlocked = true;
-    const u = new SpeechSynthesisUtterance(' '); u.volume = 0; syn.speak(u);
-    if (pending) { const p = pending; pending = null; setTimeout(() => say(p.text, p.opts), 250); }
+    if (pending) { const p = pending; pending = null; speak(p.text, p.opts); return; }
+    // speech has to really start inside the tap, or iOS keeps blocking the later briefing
+    if (on && SFX.soundOn) speak('E.V. online.', {}, true); else { const u = new SpeechSynthesisUtterance('.'); u.volume = 0; syn.speak(u); }
   };
-  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, unlock, { passive: true }));
+  ['click', 'touchend', 'keydown'].forEach(ev => window.addEventListener(ev, unlock, { passive: true, capture: true }));
   const box = () => $('#ev'), txt = () => $('#evt');
   function caption(text, talking) {
     const b = box(); if (!b) return; clearTimeout(hideT);
@@ -2199,16 +2201,22 @@ const EV = (() => {
     caption(text, voiced);
     if (!voiced) { hideSoon(1800 + text.length * 45); return; }
     if (!unlocked) { pending = { text, opts }; hideSoon(1800 + text.length * 45); return; }   // browsers only start speech after a tap
+    speak(text, opts);
+  }
+  function speak(text, opts = {}, quiet) {
     if (opts.interrupt) syn.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-GB';
     u.rate = 1.02; u.pitch = 1.06; u.volume = 1;
-    u.onstart = () => { caption(text, true); SFX.duck(true); };
+    let started = false;
+    u.onstart = () => { started = true; if (!quiet) caption(text, true); SFX.duck(true); };
+    // if the device silently refused (no tap yet since the app woke up), hold the line for the next tap
+    setTimeout(() => { if (!started && !syn.speaking) { syn.cancel(); unlocked = false; pending = { text, opts }; } }, 1600);
     const t0 = performance.now(), read = 1800 + text.length * 45;
-    const end = () => { box()?.classList.remove('talk'); SFX.duck(false); hideSoon(Math.max(1400, read - (performance.now() - t0))); };   // if speech fails, the caption stays long enough to read
+    const end = () => { if (quiet) { SFX.duck(false); return; } box()?.classList.remove('talk'); SFX.duck(false); hideSoon(Math.max(1400, read - (performance.now() - t0))); };   // if speech fails, the caption stays long enough to read
     u.onend = end; u.onerror = end;
     syn.speak(u);
-    hideSoon(4000 + text.length * 90);   // in case the device never reports the end
+    if (!quiet) hideSoon(4000 + text.length * 90);   // in case the device never reports the end
   }
   // ---- what she knows ----
   const pick1 = a => a[Math.floor(Math.random() * a.length)];
@@ -2276,6 +2284,11 @@ const EV = (() => {
   $('#ev').addEventListener('click', () => EV.brief(true));
   paint();
   document.addEventListener('introdone', () => setTimeout(() => EV.brief(false), 1200), { once: true });
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') hiddenAt = Date.now();
+    else if (hiddenAt && Date.now() - hiddenAt > 20 * 60 * 1000 && !INTRO.active) setTimeout(() => EV.brief(false), 800);
+  });
 })();
 
 /* ================= startup sequence: synced to the first 12 s of the theme ================= */
@@ -2418,7 +2431,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v13'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v14'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
