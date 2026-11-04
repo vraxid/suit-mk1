@@ -276,6 +276,31 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .backup { display: flex; gap: 8px; flex-wrap: wrap; }
 .backup .btn { font-size: 10px; padding: 6px 10px; }
 footer { align-items: center; }
+.hudscan { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.hudscan::before { content: ""; position: absolute; left: 0; right: 0; height: 120px; top: -120px; background: linear-gradient(180deg, transparent, rgba(99,211,255,.06) 70%, rgba(99,211,255,.25) 100%); border-bottom: 1px solid rgba(99,211,255,.35); animation: hscan 7s linear infinite; }
+@keyframes hscan { from { transform: translateY(0); } to { transform: translateY(calc(100vh + 240px)); } }
+.vlabel.telem { top: 86px; left: 14px; color: var(--dim); font-variant-numeric: tabular-nums; letter-spacing: .14em; }
+/* ---------- startup sequence ---------- */
+#intro { position: fixed; inset: 0; z-index: 50; background: radial-gradient(circle at 50% 45%, #0a2541 0%, #04101e 55%, #020810 100%); display: grid; place-items: center; transition: opacity .9s ease, clip-path 1s cubic-bezier(.7,0,.2,1); clip-path: circle(150% at 50% 50%); }
+#intro.out { opacity: 0; clip-path: circle(0% at 50% 50%); pointer-events: none; }
+#intro::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(99,211,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(99,211,255,.06) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%); }
+#ic { position: absolute; inset: 0; width: 100%; height: 100%; }
+#ihud { position: absolute; left: calc(24px + env(safe-area-inset-left)); top: calc(24px + env(safe-area-inset-top)); display: grid; gap: 4px; font-size: 11px; letter-spacing: .16em; color: var(--line); }
+.iline { opacity: 0; } .iline.on { opacity: 1; }
+.iline:last-child { color: var(--amber); }
+#ititle { position: absolute; bottom: calc(7% + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; opacity: 0; transform: translateY(10px); transition: opacity .8s, transform .8s, letter-spacing 1.6s; letter-spacing: .5em; }
+#ititle.on { opacity: 1; transform: none; letter-spacing: .12em; }
+#ititle b { display: block; font-family: var(--display); font-size: clamp(34px, 7vw, 72px); color: #fff; text-shadow: 0 0 24px rgba(99,211,255,.7); }
+#ititle span { font-size: 11px; letter-spacing: .4em; color: var(--line); }
+.iload { position: absolute; right: calc(24px + env(safe-area-inset-right)); bottom: calc(24px + env(safe-area-inset-bottom)); width: 180px; display: grid; gap: 6px; font-size: 9px; letter-spacing: .2em; color: var(--dim); text-align: right; }
+#ibar { height: 2px; background: rgba(99,211,255,.15); } #ibar i { display: block; height: 100%; width: 0; background: var(--line); box-shadow: 0 0 8px var(--line); }
+#gate { position: relative; z-index: 2; display: grid; place-items: center; gap: 18px; background: none; border: 0; cursor: pointer; color: var(--text); padding: 40px; }
+#gate .gr { width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--line); box-shadow: 0 0 30px rgba(99,211,255,.25), inset 0 0 30px rgba(99,211,255,.15); display: grid; place-items: center; animation: gpulse 2.2s ease-in-out infinite; font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .08em; color: #fff; }
+@keyframes gpulse { 50% { box-shadow: 0 0 50px rgba(99,211,255,.45), inset 0 0 40px rgba(99,211,255,.3); transform: scale(1.04); } }
+#gate .gt { font-size: 11px; letter-spacing: .4em; color: var(--line); }
+#skip { position: absolute; left: calc(24px + env(safe-area-inset-left)); bottom: calc(24px + env(safe-area-inset-bottom)); background: none; border: 1px solid var(--dim); color: var(--dim); font-size: 9px; letter-spacing: .24em; text-transform: uppercase; padding: 6px 12px; cursor: pointer; z-index: 2; }
+#skip:hover { color: var(--line); border-color: var(--line); }
+#intro.run #gate { display: none; }
 footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 @media (max-width: 960px) {
@@ -303,6 +328,14 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
 </script>
 </head>
 <body>
+<div id="intro" role="dialog" aria-label="Starting Suit Mk1">
+  <canvas id="ic" aria-hidden="true"></canvas>
+  <div id="ihud" aria-hidden="true"></div>
+  <div id="ititle" aria-hidden="true"><b>SPIDER-MAN</b><span>SUIT MK1</span></div>
+  <button id="gate" type="button"><span class="gr">MK1</span><span class="gt">TAP TO START</span></button>
+  <button id="skip" type="button" hidden>Skip intro</button>
+  <div class="iload" aria-live="polite"><span id="ipct">LOADING 0%</span><div id="ibar"><i></i></div></div>
+</div>
 <div class="wrap">
   <header class="title corner">
     <div class="brand">
@@ -334,6 +367,8 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
         <div class="vlabel tl">Drawing <span class="big" id="v-name">Full suit</span></div>
         <div class="vlabel tr" id="v-code">SM-00<br>Sheet 1 of 8<br>Drag to rotate</div>
         <div class="vlabel bl" id="v-spec"></div>
+        <div class="hudscan" aria-hidden="true"></div>
+        <div class="vlabel telem" id="telem" aria-hidden="true"></div>
         <div class="loading" id="loading">LOADING MODEL</div>
         <div id="hots"></div>
         <div class="tip" id="tip" role="tooltip"></div>
@@ -411,17 +446,17 @@ const PARTS = [
 const byId = Object.fromEntries(PARTS.map(p => [p.id, p]));
 // suit panels, split from the model by region; colours come from the model's own texture
 const PANELS = [
-  { id: 'mask', code: 'P-01', name: 'Mask hood', part: 'hood', dir: [0, 1, .15], d: 72 },
-  { id: 'torso_front', code: 'P-02', name: 'Front torso', part: 'body', dir: [0, .08, 1], d: 95 },
-  { id: 'arm_l', code: 'P-03', name: 'Left arm', part: 'body', dir: [1, .35, 0], d: 88 },
-  { id: 'arm_r', code: 'P-04', name: 'Right arm', part: 'body', dir: [-1, .35, 0], d: 88 },
-  { id: 'glove_l', code: 'P-05', name: 'Left glove', part: 'body', dir: [1, -.15, .2], d: 150 },
-  { id: 'glove_r', code: 'P-06', name: 'Right glove', part: 'body', dir: [-1, -.15, .2], d: 150 },
-  { id: 'boot_l', code: 'P-07', name: 'Left boot', part: 'body', dir: [.6, -1, .15], d: 70 },
-  { id: 'boot_r', code: 'P-08', name: 'Right boot', part: 'body', dir: [-.6, -1, .15], d: 70 },
-  { id: 'rest', code: 'P-09', name: 'Back, legs and belt', part: 'body', dir: [0, -.1, -1], d: 65 },
-  { id: 'logo_chest', code: 'L-01', name: 'Chest logo', part: 'logos', logo: true, dir: [0, .15, 1], d: 165 },
-  { id: 'logo_back', code: 'L-02', name: 'Back logo', part: 'logos', logo: true, dir: [0, .15, -1], d: 140 },
+  { id: 'mask', code: 'P-01', name: 'Mask hood', part: 'hood', dir: [0, 1, .1], d: 20 },
+  { id: 'torso_front', code: 'P-02', name: 'Front torso', part: 'body', dir: [0, 0, 1], d: 22 },
+  { id: 'arm_l', code: 'P-03', name: 'Left arm', part: 'body', dir: [1, .12, 0], d: 24 },
+  { id: 'arm_r', code: 'P-04', name: 'Right arm', part: 'body', dir: [-1, .12, 0], d: 24 },
+  { id: 'glove_l', code: 'P-05', name: 'Left glove', part: 'body', dir: [1, -.05, .1], d: 34 },
+  { id: 'glove_r', code: 'P-06', name: 'Right glove', part: 'body', dir: [-1, -.05, .1], d: 34 },
+  { id: 'boot_l', code: 'P-07', name: 'Left boot', part: 'body', dir: [.35, -.4, .2], d: 16 },
+  { id: 'boot_r', code: 'P-08', name: 'Right boot', part: 'body', dir: [-.35, -.4, .2], d: 16 },
+  { id: 'rest', code: 'P-09', name: 'Back, legs and belt', part: 'body', dir: [0, 0, -1], d: 16 },
+  { id: 'logo_chest', code: 'L-01', name: 'Chest logo', part: 'logos', logo: true, dir: [0, .05, 1], d: 42 },
+  { id: 'logo_back', code: 'L-02', name: 'Back logo', part: 'logos', logo: true, dir: [0, .05, -1], d: 38 },
 ];
 const panelById = Object.fromEntries(PANELS.map(p => [p.id, p]));
 const STEPS = { fabric: [['painted', 'Puff painted', 'Ready to sew'], ['sewn', 'Sewn', 'Done']], logo: [['cast', 'Cast', 'Ready to glue'], ['glued', 'Glued', 'On the suit']] };
@@ -927,7 +962,12 @@ function holo(geom, { color = INK, fill = .55, edge = .35, edgeColor, thresh = 2
 
 const views = {};
 const loader = new GLTFLoader();
-function loadModel(file, onLoad, onErr) { loader.load('models/' + file, onLoad, undefined, onErr); }
+const LOAD = {};
+function loadFrac() { const v = Object.values(LOAD); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0; }
+function loadModel(file, onLoad, onErr) {
+  LOAD[file] = 0;
+  loader.load('models/' + file, g => { LOAD[file] = 1; onLoad(g); }, x => { if (x.total) LOAD[file] = Math.min(.99, x.loaded / x.total); }, e => { LOAD[file] = 1; onErr && onErr(e); });
+}
 let currentView = null, pendingView = null, printerHead = null;
 
 function frame(obj, { pad = 1.35, target } = {}) {
@@ -1034,7 +1074,7 @@ const bracketGeo = (() => {   // corner brackets of a unit cube, for the selecti
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); return g;
 })();
-function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2 } = {}) {
+function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2, ghost = false } = {}) {
   const set = { root: new THREE.Group(), pieces: {}, pick: [], exploded: false, k: 0, spread, glow: {}, order: [], scale: 1 };
   ids.forEach((id, i) => {
     const p = panelById[id], pivot = new THREE.Group(), inner = new THREE.Group(); pivot.add(inner); pivot.userData.panel = id;
@@ -1063,6 +1103,12 @@ function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatL
   // selection brackets
   set.bracket = new THREE.LineSegments(bracketGeo, new THREE.LineBasicMaterial({ color: AMBER, transparent: true, opacity: 0, depthWrite: false }));
   set.bracket.renderOrder = 3; set.bracket.userData.k = 0;
+  if (ghost) {
+    set.ghostMat = holoMat(INK, 0); set.ghostMat.uniforms.uPat.value = .6; set.ghostMat.uniforms.uCell.value = cell * 1.6;
+    set.ghost = new THREE.Group();
+    ids.filter(id => !panelById[id].logo).forEach(id => ['__red', '__blue'].forEach(k => { const g = G[id + k]; if (g) set.ghost.add(new THREE.Mesh(g, set.ghostMat)); }));
+    set.ghost.renderOrder = 1; set.root.add(set.ghost);
+  }
   sets.push(set); return set;
 }
 function addScanRing(set, radius, c) {
@@ -1117,10 +1163,10 @@ function stepSets(dt, t) {
       const e = u.to > u.from ? backOut(x) : ease(x);
       u.kCur = u.from + (u.to - u.from) * e; kmax = Math.max(kmax, u.kCur);
       const k = THREE.MathUtils.clamp(u.kCur, 0, 1.2);
-      const bob = reduced ? 0 : Math.sin(t * 1.1 + u.phase) * 2.2 * Math.min(k, 1);
+      const bob = reduced ? 0 : Math.sin(t * 1.1 + u.phase) * .9 * Math.min(k, 1);
       grp.position.copy(u.home).addScaledVector(u.dir, u.kCur * set.scale); grp.position.y += bob;
-      grp.rotation.y = reduced ? 0 : Math.sin(t * .45 + u.phase) * .45 * Math.min(k, 1);
-      grp.rotation.x = reduced ? 0 : Math.sin(t * .3 + u.phase * 2) * .08 * Math.min(k, 1);
+      grp.rotation.y = reduced ? 0 : Math.sin(t * .45 + u.phase) * .05 * Math.min(k, 1);
+      grp.rotation.x = 0;
       // tether
       const pos = u.tether.geometry.attributes.position; pos.setXYZ(0, u.home.x, u.home.y, u.home.z); pos.setXYZ(1, grp.position.x, grp.position.y, grp.position.z); pos.needsUpdate = true;
       u.tether.computeLineDistances(); u.tether.material.opacity = Math.min(k, 1) * .45;
@@ -1139,6 +1185,7 @@ function stepSets(dt, t) {
       });
     });
     set.k = kmax;
+    if (set.ghostMat) set.ghostMat.uniforms.uOpacity.value = Math.min(1, kmax) * .22;
     set.root.children.forEach(o => { if (!o.userData.gear) return; if (o.userData.follow && set.pieces[o.userData.follow]) { const pv = set.pieces[o.userData.follow]; o.position.copy(pv.position).sub(pv.userData.home); } else o.visible = kmax < .05; });
     // scan ring sweeps up the suit whenever it separates or assembles
     if (set.scan) {
@@ -1209,7 +1256,7 @@ loadModel('suit2.glb', gltf => {
     const fr = (G[id + '__red']?.index?.count || 0), fb = (G[id + '__blue']?.index?.count || 0);
     PANEL_INFO[id] = { red: fr / (fr + fb || 1), blue: fb / (fr + fb || 1) };
   });
-  const sSuit = makeSet(G, ALLP, { gear: true, spread: 1.5 });
+  const sSuit = makeSet(G, ALLP, { gear: true, spread: 1.12, ghost: true });
   finishView('suit', sSuit.root, {
     set: sSuit, spec: [['PANELS', '9 + 2 logos'], ['SCALE', 'reference model']],
     hot: [
@@ -1218,9 +1265,9 @@ loadModel('suit2.glb', gltf => {
       { part: 'webshooters', pos: [70, 166, 20] }, { part: 'faceshell', pos: [-9, 243, 17], left: true },
     ], pad: 1.0, elev: .12,
   });
-  const sBody = makeSet(G, ALLP, { spread: 1.5 });
+  const sBody = makeSet(G, ALLP, { spread: 1.12, ghost: true });
   finishView('body', sBody.root, { set: sBody, spec: [['PANELS', '9 spandex + 2 logos'], ['HOVER', 'inspect'], ['CLICK', 'select'], ['E', 'separate']], pad: 1.0, elev: .12 });
-  const sHood = makeSet(G, ['mask'], { spread: 1.3, cell: 1.4 }); sHood.scale = .45;
+  const sHood = makeSet(G, ['mask'], { spread: 1.15, cell: 1.4, ghost: true }); sHood.scale = .6;
   finishView('hood', sHood.root, { set: sHood, spec: [['FABRIC', 'red spandex'], ['CRITICAL', 'head sides · chin · top-to-back']], pad: 1.1, elev: .1 });
   buildMolds(G);
   applyAllStates(); render();
@@ -1287,6 +1334,38 @@ loadPrinted('lenses.glb', 'lenses', [['FILE', 'Normal.stl'], ['HOLD', 'magnets t
 let printing = false;
 function updatePrinterAnim() { printing = state.jobs.some(j => j.status === 'printing'); }
 
+/* ---- background effects: drifting particles, orbit arcs, telemetry ---- */
+const FX = new THREE.Group(); scene.add(FX);
+const fxN = 520, fxPos = new Float32Array(fxN * 3), fxSeed = new Float32Array(fxN);
+for (let i = 0; i < fxN; i++) { const a = Math.random() * Math.PI * 2, r = .55 + Math.random() * .9; fxPos.set([Math.cos(a) * r, Math.random() * 2 - 1, Math.sin(a) * r], i * 3); fxSeed[i] = Math.random(); }
+const fxGeo = new THREE.BufferGeometry(); fxGeo.setAttribute('position', new THREE.BufferAttribute(fxPos, 3)); fxGeo.setAttribute('aS', new THREE.BufferAttribute(fxSeed, 1));
+const fxMat = new THREE.ShaderMaterial({
+  uniforms: { uT: { value: 0 }, uPx: { value: renderer.getPixelRatio() } },
+  vertexShader: `attribute float aS; uniform float uT; uniform float uPx; varying float vA;
+    void main(){ vec3 p = position; p.y = mod(p.y + 1.0 + uT * (.02 + aS * .04), 2.0) - 1.0;
+      float a = atan(p.z, p.x) + uT * .03 * (aS - .5); float r = length(p.xz); p.x = cos(a) * r; p.z = sin(a) * r;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_PointSize = (1.2 + aS * 2.0) * uPx; vA = (1.0 - abs(p.y)) * (.4 + .6 * sin(uT * (1.0 + aS * 2.0) + aS * 40.0) * .5 + .3); gl_Position = projectionMatrix * mv; }`,
+  fragmentShader: `varying float vA; void main(){ float d = length(gl_PointCoord - .5); if (d > .5) discard; gl_FragColor = vec4(.39, .83, 1.0, vA * .55 * (1.0 - d * 2.0)); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+FX.add(new THREE.Points(fxGeo, fxMat));
+const arcs = [[1.08, .25, .55, 1.3], [1.18, -.35, -.35, .8], [.98, .6, .2, .5]].map(([r, tilt, spin, len]) => {
+  const pts = []; for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * len; pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r)); }
+  const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0x63d3ff, transparent: true, opacity: .28, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const holder = new THREE.Group(); holder.rotation.x = tilt; holder.add(l); holder.userData.spin = 0; l.userData.arcSpin = spin; FX.add(holder); return l;
+});
+function fitFx(v) { const h = (v.set?.box ? v.set.box.max.y - v.set.box.min.y : v.r * 1.4); FX.position.copy(v.c); FX.scale.set(v.r * .9, Math.max(h, v.r) * .55, v.r * .9); }
+function stepFx(t) {
+  fxMat.uniforms.uT.value = reduced ? 0 : t;
+  if (!reduced) arcs.forEach(l => { l.rotation.y = t * l.userData.arcSpin * .3; });
+  if (currentView && FX.userData.v !== currentView) { FX.userData.v = currentView; fitFx(currentView); }
+  if (!stepFx.last || t - stepFx.last > .25) {    // telemetry readout
+    stepFx.last = t; const el2 = $('#telem'); if (el2 && currentView) {
+      const off = camera.position.clone().sub(controls.target), az = (Math.atan2(off.x, off.z) * 180 / Math.PI + 360) % 360, elv = Math.asin(off.y / off.length()) * 180 / Math.PI;
+      el2.textContent = 'AZ ' + az.toFixed(0).padStart(3, '0') + '°  EL ' + elv.toFixed(0) + '°  ZM ' + (fitDistance(currentView) / off.length()).toFixed(2) + '×';
+    }
+  }
+}
 /* ---- loop ---- */
 function resize() {
   const w = viewer.clientWidth, h = viewer.clientHeight;
@@ -1297,6 +1376,8 @@ new ResizeObserver(resize).observe(viewer); resize();
 let lastT = 0;
 renderer.setAnimationLoop(() => {
   const t = clock.getElapsedTime();
+  if (typeof INTRO !== 'undefined' && INTRO.active) return;
+  stepFx(t);
   holoMats.forEach(m => { if (m.uniforms.uTime) m.uniforms.uTime.value = reduced ? 0 : t; });
   if (printerHead && currentView === views.printer) {
     const { head, gantry, S } = printerHead;
@@ -1330,118 +1411,138 @@ renderer.setAnimationLoop(() => {
   });
   document.addEventListener('fullscreenchange', label);
 })();
-/* ================= sound: every effect is synthesized here (Web Audio), no audio files ================= */
+/* ================= sound: synthesized in Web Audio, calm assistant-style interface tones ================= */
 const SFX = (() => {
-  let ctx = null, master = null, sfxBus = null, musicBus = null, verb = null, noiseBuf = null;
+  let ctx = null, master = null, sfxBus = null, musicBus = null, noiseBuf = null, lp = null;
   const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const keep = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-  let soundOn = store('mk1-sound') !== 'off', musicOn = store('mk1-music') === 'on';
+  let soundOn = store('mk1-sound') !== 'off', musicOn = store('mk1-music') !== 'off';
+  const MUSIC_START = 12, MUSIC_VOL = .42;
   let musicEl = null, musicNode = null, musicAvailable = false;
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = .9; master.connect(ctx.destination);
-    sfxBus = ctx.createGain(); sfxBus.gain.value = soundOn ? .55 : 0;
+    master = ctx.createGain(); master.gain.value = 1; master.connect(ctx.destination);
+    // everything passes a gentle low-pass and a long, dark tail: glassy, never chirpy
+    lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 7000; lp.Q.value = .3;
+    sfxBus = ctx.createGain(); sfxBus.gain.value = soundOn ? .5 : 0; sfxBus.connect(lp); lp.connect(master);
+    const verb = ctx.createConvolver(), len = ctx.sampleRate * 2.4, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4); }
+    verb.buffer = ir; const vlp = ctx.createBiquadFilter(); vlp.type = 'lowpass'; vlp.frequency.value = 3200;
+    const wet = ctx.createGain(); wet.gain.value = .32; lp.connect(vlp); vlp.connect(verb); verb.connect(wet); wet.connect(master);
     musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
-    // a short synthetic room so blips sound like they come from inside the suit's computer
-    verb = ctx.createConvolver(); const len = ctx.sampleRate * 1.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);
-    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
-    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .22; sfxBus.connect(master); sfxBus.connect(verb); verb.connect(wet); wet.connect(master);
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-    if (musicOn && musicAvailable) startMusic();
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    if (musicEl && !musicNode) { try { musicNode = ctx.createMediaElementSource(musicEl); musicNode.connect(musicBus); } catch (e) {} }
   }
   ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, init, { passive: true }));
   const ok = () => ctx && soundOn && ctx.state === 'running';
-  function tone({ f = 880, f2 = null, type = 'sine', t = 0, dur = .08, vol = .2, attack = .004, q = null, detune = 0 }) {
-    const now = ctx.currentTime + t, o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = type; o.frequency.setValueAtTime(f, now); o.detune.value = detune;
-    if (f2) o.frequency.exponentialRampToValueAtTime(f2, now + dur);
-    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + attack); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
-    let out = g;
-    if (q) { const fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q; g.connect(fl); out = fl; }
-    o.connect(g); out.connect(sfxBus); o.start(now); o.stop(now + dur + .05);
+  const pan = (node, p) => { if (!ctx.createStereoPanner) return node; const s = ctx.createStereoPanner(); s.pan.value = p; node.connect(s); return s; };
+  // a soft sine "glass" ping with a quiet upper partial
+  function ping(f, { t = 0, dur = .45, vol = .08, p = 0, bend = 0 } = {}) {
+    const now = ctx.currentTime + t;
+    [[1, 1], [2.01, .22], [3.98, .06]].forEach(([m, a]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+      o.frequency.setValueAtTime(f * m, now); if (bend) o.frequency.exponentialRampToValueAtTime(f * m * bend, now + dur);
+      g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol * a, now + .006); g.gain.exponentialRampToValueAtTime(.0001, now + dur * (m > 1 ? .5 : 1));
+      o.connect(g); pan(g, p).connect(sfxBus); o.start(now); o.stop(now + dur + .05);
+    });
   }
-  function noise({ t = 0, dur = .3, vol = .2, from = 400, to = 4000, q = 2, type = 'bandpass' }) {
+  function pad(f, { t = 0, dur = .8, vol = .05, attack = .12 } = {}) {   // slow soft tone
+    const now = ctx.currentTime + t, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + attack); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    o.connect(g); g.connect(sfxBus); o.start(now); o.stop(now + dur + .05);
+  }
+  function air({ t = 0, dur = .4, vol = .05, from = 1500, to = 6000, q = .7, type = 'bandpass' } = {}) {   // breath of filtered noise
     const now = ctx.currentTime + t, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
     s.buffer = noiseBuf; s.loop = true; f.type = type; f.Q.value = q;
     f.frequency.setValueAtTime(from, now); f.frequency.exponentialRampToValueAtTime(to, now + dur);
-    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .25); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
-    s.connect(f); f.connect(g); g.connect(sfxBus); s.start(now); s.stop(now + dur + .05);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .35); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    s.connect(f); f.connect(g); g.connect(sfxBus); s.start(now, Math.random()); s.stop(now + dur + .05);
   }
-  // every part and panel gets its own voice: a base pitch, a waveform and a little motif
-  const VOICE = {
-    suit: [392, 'triangle'], body: [330, 'triangle'], hood: [523, 'sine'], faceshell: [587, 'square'], lenses: [784, 'sine'],
-    logos: [440, 'sawtooth'], webshooters: [659, 'square'], printer: [220, 'sawtooth'],
-  };
+  function thump({ t = 0, vol = .12, f = 70 } = {}) {
+    const now = ctx.currentTime + t, o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(f, now); o.frequency.exponentialRampToValueAtTime(f * .55, now + .25);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + .01); g.gain.exponentialRampToValueAtTime(.0001, now + .3);
+    o.connect(g); g.connect(sfxBus); o.start(now); o.stop(now + .35);
+  }
+  function servo(f1, f2, { t = 0, dur = .6, vol = .025 } = {}) {      // faint motor glide
+    const now = ctx.currentTime + t, o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f1, now); o.frequency.exponentialRampToValueAtTime(f2, now + dur);
+    fl.type = 'lowpass'; fl.frequency.value = 1400;
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .3); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    o.connect(fl); fl.connect(g); g.connect(sfxBus); o.start(now); o.stop(now + dur + .05);
+  }
+  // each part and panel keeps its own note, all from one calm key (D minor pentatonic)
+  const KEY = [293.66, 349.23, 392, 440, 523.25, 587.33, 698.46, 783.99];
+  const VOICE = { suit: 0, body: 1, hood: 5, faceshell: 4, lenses: 7, logos: 3, webshooters: 6, printer: 2 };
   const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
-  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19];   // pentatonic steps keep every panel tone pleasant together
-  const panelPitch = id => 520 * Math.pow(2, SCALE[hash(id) % SCALE.length] / 12);
-  let lastHover = 0;
+  const note = id => KEY[(VOICE[id] ?? hash(id)) % KEY.length];
+  const sidePan = id => /_l$/.test(id) ? .35 : /_r$/.test(id) ? -.35 : 0;
+  let lastHover = 0, lastUi = 0;
   return {
     get soundOn() { return soundOn; }, get musicOn() { return musicOn; }, get musicAvailable() { return musicAvailable; },
-    hover(id) {                       // soft high blip, its pitch set by the panel
-      if (!ok() || !id) return; const n = performance.now(); if (n - lastHover < 45) return; lastHover = n;
-      const f = panelPitch(id) * 2;
-      tone({ f, f2: f * 1.04, type: 'sine', dur: .05, vol: .06 }); tone({ f: f * 2, type: 'sine', t: .012, dur: .03, vol: .025 });
+    get ctx() { return ctx; }, init,
+    hover(id) {
+      if (!ok() || !id) return; const n = performance.now(); if (n - lastHover < 60) return; lastHover = n;
+      ping(note(id) * 4, { dur: .18, vol: .022, p: sidePan(id) }); air({ dur: .08, vol: .012, from: 5000, to: 8000, q: 2 });
     },
-    uiHover() { if (!ok()) return; const n = performance.now(); if (n - lastHover < 45) return; lastHover = n; tone({ f: 2400, type: 'sine', dur: .025, vol: .03 }); },
-    select(id) {                      // lock-on: a tick, then two rising notes in the panel's key
-      if (!ok()) return; const f = panelPitch(id), logo = panelById[id]?.logo;
-      noise({ dur: .05, vol: .12, from: 3000, to: 6000, q: 6 });
-      tone({ f, type: logo ? 'sawtooth' : 'triangle', t: .02, dur: .09, vol: .12, q: logo ? 4 : null });
-      tone({ f: f * 1.5, type: 'triangle', t: .08, dur: .16, vol: .1 });
-      tone({ f: f * 3, type: 'sine', t: .1, dur: .22, vol: .03 });
+    uiHover() { if (!ok()) return; const n = performance.now(); if (n - lastUi < 60) return; lastUi = n; ping(2349, { dur: .08, vol: .008 }); },
+    select(id) {
+      if (!ok()) return; const f = note(id) * 2, p = sidePan(id);
+      thump({ vol: .09 }); ping(f, { t: .01, dur: .7, vol: .07, p }); ping(f * 1.5, { t: .07, dur: .9, vol: .04, p }); air({ t: .02, dur: .5, vol: .02, from: 3000, to: 7000 });
     },
-    sheet(partId) {                   // opening a part's sheet: a quick data sweep in that part's voice
-      if (!ok()) return; const [f, type] = VOICE[partId] || [440, 'sine'];
-      noise({ dur: .28, vol: .07, from: 800, to: 7000, q: 3 });
-      [0, 4, 7, 12].forEach((s, i) => tone({ f: f * Math.pow(2, s / 12), type, t: i * .045, dur: .1, vol: type === 'square' || type === 'sawtooth' ? .035 : .08, q: type === 'sawtooth' ? 3 : null }));
+    sheet(partId) {
+      if (!ok()) return; const f = note(partId);
+      air({ dur: .55, vol: .035, from: 600, to: 5000, q: .5 });
+      pad(f, { t: .05, dur: 1.1, vol: .035, attack: .18 }); pad(f * 1.5, { t: .12, dur: 1.0, vol: .025, attack: .2 });
+      ping(f * 4, { t: .22, dur: .6, vol: .03 });
     },
-    step(on, final) {                 // marking a step: confirm up, undo down
+    step(on, final) {
       if (!ok()) return;
-      if (on) { [0, 7, 12, final ? 19 : null].forEach((s, i) => s != null && tone({ f: 660 * Math.pow(2, s / 12), type: 'triangle', t: i * .06, dur: .14, vol: .1 })); if (final) noise({ t: .2, dur: .4, vol: .05, from: 2000, to: 9000, q: 1 }); }
-      else { tone({ f: 660, f2: 440, type: 'triangle', dur: .16, vol: .09 }); tone({ f: 330, type: 'sine', t: .08, dur: .12, vol: .06 }); }
+      if (on) { ping(587.33, { dur: .5, vol: .06 }); ping(880, { t: .08, dur: .7, vol: .05 }); if (final) { ping(1174.7, { t: .18, dur: 1, vol: .035 }); air({ t: .15, dur: .8, vol: .025, from: 2500, to: 8000 }); } }
+      else ping(523.25, { dur: .5, vol: .05, bend: .94 });
     },
-    separate(apart) {                 // suit splitting or coming back together
+    separate(apart) {
       if (!ok()) return;
-      if (apart) {
-        tone({ f: 70, f2: 38, type: 'sine', dur: .6, vol: .35 });
-        noise({ dur: .9, vol: .16, from: 300, to: 5000, q: 1.2 });
-        for (let i = 0; i < 9; i++) tone({ f: 1200 + i * 140, type: 'square', t: .06 + i * .07, dur: .03, vol: .018 });
-      } else {
-        noise({ dur: .7, vol: .14, from: 5000, to: 300, q: 1.2 });
-        for (let i = 0; i < 6; i++) tone({ f: 1800 - i * 160, type: 'square', t: i * .08, dur: .03, vol: .02 });
-        tone({ f: 120, f2: 60, type: 'sine', t: .62, dur: .25, vol: .3 }); noise({ t: .62, dur: .08, vol: .2, from: 2500, to: 1200, q: 4 });
-      }
+      if (apart) { air({ dur: .7, vol: .06, from: 6000, to: 1800, q: .4, type: 'highpass' }); servo(260, 620, { t: .05, dur: .9 }); pad(73.4, { dur: 1.6, vol: .09, attack: .25 }); ping(1174.7, { t: .45, dur: 1.2, vol: .02 }); }
+      else { servo(620, 240, { dur: .8 }); air({ dur: .6, vol: .04, from: 1800, to: 5000, q: .4, type: 'highpass' }); thump({ t: .72, vol: .13, f: 80 }); air({ t: .72, dur: .09, vol: .05, from: 2200, to: 1600, q: 5 }); ping(587.33, { t: .75, dur: .9, vol: .03 }); }
     },
-    log() { if (!ok()) return; for (let i = 0; i < 5; i++) tone({ f: 1800 + Math.random() * 900, type: 'square', t: i * .035, dur: .02, vol: .02 }); tone({ f: 990, type: 'triangle', t: .2, dur: .12, vol: .07 }); },
+    log() { if (!ok()) return; [0, .05, .1].forEach((t, i) => ping(1760 + i * 220, { t, dur: .12, vol: .012 })); ping(880, { t: .16, dur: .6, vol: .04 }); },
     job(status) {
       if (!ok()) return;
-      if (status === 'printing') { tone({ f: 180, f2: 260, type: 'sawtooth', dur: .35, vol: .05, q: 6 }); tone({ f: 260, f2: 200, type: 'sawtooth', t: .35, dur: .3, vol: .04, q: 6 }); }
+      if (status === 'printing') servo(180, 330, { dur: 1.1, vol: .03 });
       else if (status === 'done') this.step(true, true);
-      else if (status === 'failed') { tone({ f: 220, type: 'square', dur: .15, vol: .06 }); tone({ f: 165, type: 'square', t: .17, dur: .25, vol: .06 }); }
-      else tone({ f: 880, type: 'sine', dur: .08, vol: .06 });
+      else if (status === 'failed') { ping(349.23, { dur: .5, vol: .05 }); ping(329.63, { t: .14, dur: .7, vol: .05 }); }
+      else ping(698.46, { dur: .4, vol: .04 });
     },
-    boot() {                          // once, the first time sound unlocks
-      if (!ok()) return; tone({ f: 55, f2: 110, type: 'sine', dur: 1.2, vol: .25, attack: .3 });
-      [0, 7, 12, 16, 19].forEach((s, i) => tone({ f: 330 * Math.pow(2, s / 12), type: 'triangle', t: .35 + i * .09, dur: .3, vol: .06 }));
-      noise({ t: .3, dur: 1, vol: .05, from: 500, to: 8000, q: 1 });
+    setSound(v) { soundOn = v; keep('mk1-sound', v ? 'on' : 'off'); init(); if (sfxBus) sfxBus.gain.setTargetAtTime(v ? .5 : 0, ctx.currentTime, .05); if (!v) this.setMusic(false, true); },
+    /* ---- background track: the file's first 12 s are the startup sound, music proper starts at 12 s ---- */
+    prepareMusic(src) {
+      musicEl = new Audio(); musicEl.src = src; musicEl.preload = 'auto'; musicEl.playsInline = true;
+      musicEl.addEventListener('canplay', () => { musicAvailable = true; document.dispatchEvent(new Event('musicready')); }, { once: true });
+      musicEl.addEventListener('error', () => { musicAvailable = false; document.dispatchEvent(new Event('musicready')); }, { once: true });
+      musicEl.addEventListener('timeupdate', () => { if (musicEl.duration && musicEl.currentTime > musicEl.duration - .4) musicEl.currentTime = MUSIC_START; });
+      musicEl.addEventListener('ended', () => { musicEl.currentTime = MUSIC_START; musicEl.play().catch(() => {}); });
+      return musicEl;
     },
-    setSound(v) { soundOn = v; keep('mk1-sound', v ? 'on' : 'off'); init(); if (sfxBus) sfxBus.gain.setTargetAtTime(v ? .55 : 0, ctx.currentTime, .05); },
-    async probeMusic(src) {           // background track: only if audio/music.mp3 exists
-      try { const r = await fetch(src, { method: 'HEAD' }); musicAvailable = r.ok; } catch (e) { musicAvailable = false; }
-      if (musicAvailable) { musicEl = new Audio(src); musicEl.loop = true; musicEl.preload = 'none'; musicEl.crossOrigin = 'anonymous'; }
-      return musicAvailable;
+    get music() { return musicEl; },
+    playIntro() {     // called from the tap that starts the app, so the browser allows audio
+      init(); if (!musicEl) return false;
+      if (ctx && !musicNode) { try { musicNode = ctx.createMediaElementSource(musicEl); musicNode.connect(musicBus); } catch (e) {} }
+      musicEl.currentTime = 0;
+      if (musicBus) { musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setValueAtTime(soundOn ? MUSIC_VOL : 0, ctx.currentTime); }
+      const p = musicEl.play(); if (p) p.catch(() => {});
+      return true;
     },
-    setMusic(v) { musicOn = v; keep('mk1-music', v ? 'on' : 'off'); init(); if (v) startMusic(); else stopMusic(); },
+    introDone() { if (!musicOn && musicBus) { musicBus.gain.setTargetAtTime(0, ctx.currentTime, .8); setTimeout(() => { if (!musicOn) musicEl.pause(); }, 3000); } },
+    skipTo(sec) { if (musicEl) musicEl.currentTime = sec; },
+    setMusic(v, quiet) {
+      musicOn = v; if (!quiet) keep('mk1-music', v ? 'on' : 'off'); init(); if (!musicEl || !musicBus) return;
+      if (v && soundOn) { if (musicEl.currentTime < MUSIC_START) musicEl.currentTime = MUSIC_START; musicEl.play().catch(() => {}); musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(MUSIC_VOL, ctx.currentTime, .8); }
+      else { musicBus.gain.setTargetAtTime(0, ctx.currentTime, .3); setTimeout(() => { if (!musicOn || !soundOn) musicEl.pause(); }, 1500); }
+    },
   };
-  function startMusic() {
-    if (!ctx || !musicEl) return;
-    if (!musicNode) { musicNode = ctx.createMediaElementSource(musicEl); musicNode.connect(musicBus); }
-    musicEl.play().catch(() => {}); musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(.35, ctx.currentTime, .8);
-  }
-  function stopMusic() { if (!ctx || !musicEl) return; musicBus.gain.setTargetAtTime(0, ctx.currentTime, .3); setTimeout(() => { if (!musicOn) musicEl.pause(); }, 1200); }
 })();
 // sound controls in the header
 (function () {
@@ -1449,11 +1550,149 @@ const SFX = (() => {
   const paint = () => { sb.textContent = 'Sound ' + (SFX.soundOn ? 'on' : 'off'); sb.setAttribute('aria-pressed', SFX.soundOn ? 'true' : 'false'); mb.textContent = 'Music ' + (SFX.musicOn ? 'on' : 'off'); mb.setAttribute('aria-pressed', SFX.musicOn ? 'true' : 'false'); };
   sb.addEventListener('click', () => { SFX.setSound(!SFX.soundOn); paint(); if (SFX.soundOn) SFX.step(true); });
   mb.addEventListener('click', () => { SFX.setMusic(!SFX.musicOn); paint(); });
-  SFX.probeMusic('audio/music.mp3').then(has => { mb.hidden = !has; });
+  SFX.prepareMusic('audio/music.mp3');
+  document.addEventListener('musicready', () => { mb.hidden = !SFX.musicAvailable; paint(); });
   paint();
-  let booted = false; window.addEventListener('pointerdown', () => { if (!booted) { booted = true; setTimeout(() => SFX.boot(), 60); } }, { once: true });
-  // light ticks on buttons and part cards
   document.addEventListener('pointerover', e => { if (e.pointerType === 'mouse' && e.target.closest?.('.part, .btn, .mini, .step, .sep, .hot, .board li, .fsb, .ctl')) SFX.uiHover(); });
+})();
+
+/* ================= startup sequence: synced to the first 12 s of the theme ================= */
+const INTRO = (() => {
+  const root = $('#intro'), cv = $('#ic'), gate = $('#gate'), skip = $('#skip'), hud = $('#ihud'), bar = $('#ibar i'), pct = $('#ipct');
+  const api = { active: true };
+  const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); R.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const S = new THREE.Scene(), C = new THREE.PerspectiveCamera(32, 1, .1, 1000); C.position.set(0, 4, 84);
+  const G = new THREE.Group(); S.add(G);
+  function size() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); C.aspect = w / h; C.position.z = 84 * Math.max(1, .9 / Math.min(C.aspect, 1)); C.updateProjectionMatrix(); }
+  addEventListener('resize', size); size();
+  // reveal shader for the emblem: fills in from a moving line with a scanning edge
+  const logoMat = new THREE.ShaderMaterial({
+    uniforms: { uReveal: { value: 0 }, uGlow: { value: 0 }, uTime: { value: 0 }, uAlpha: { value: 1 } },
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vP = position; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uReveal; uniform float uGlow; uniform float uTime; uniform float uAlpha; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+      void main(){
+        float h = (vP.y + 13.0) / 26.0 + sin(vP.x * .9 + uTime) * .015;
+        if (h > uReveal) discard;
+        float edge = 1.0 - smoothstep(0.0, .05, uReveal - h);
+        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 1.6);
+        float band = .5 + .5 * sin(vP.y * 2.2 - uTime * 3.0);
+        vec3 c = vec3(.39, .83, 1.0) * (.35 + f * 1.1 + band * .15) + vec3(1.0, .82, .55) * edge * 1.4 + vec3(1.0) * uGlow;
+        gl_FragColor = vec4(c, uAlpha * (.28 + f * .7 + edge * .8 + uGlow * .5));
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  });
+  let logo = null, outline = null, dots = null, dotMat = null, ready = false;
+  const rings = [], waves = [];
+  function ring(r, w, op, segs = 128, theta = Math.PI * 2) {
+    const m = new THREE.Mesh(new THREE.RingGeometry(r, r + w, segs, 1, 0, theta), new THREE.MeshBasicMaterial({ color: 0x63d3ff, transparent: true, opacity: op, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+    G.add(m); return m;
+  }
+  rings.push({ m: ring(19, .12, .5), spin: .15 }, { m: ring(21, .5, .25, 128, Math.PI * 1.4), spin: -.3 }, { m: ring(23.5, .08, .35), spin: .05 }, { m: ring(16.5, .3, .3, 96, Math.PI * .6), spin: .6 });
+  const charge = ring(25.5, .35, 0, 160, .001); charge.material.color.set(0xffb547);
+  for (let i = 0; i < 3; i++) { const w = ring(10, .3, 0); w.userData.t = -9; waves.push(w); }
+  // tick marks on the outer ring
+  const tg = []; for (let i = 0; i < 120; i++) { const a = i / 120 * Math.PI * 2, l = i % 10 ? .6 : 1.6; tg.push(Math.cos(a) * 26.5, Math.sin(a) * 26.5, 0, Math.cos(a) * (26.5 + l), Math.sin(a) * (26.5 + l), 0); }
+  const tgeo = new THREE.BufferGeometry(); tgeo.setAttribute('position', new THREE.Float32BufferAttribute(tg, 3));
+  const ticks = new THREE.LineSegments(tgeo, new THREE.LineBasicMaterial({ color: 0x63d3ff, transparent: true, opacity: 0 })); G.add(ticks);
+  // drifting background dust
+  const bgN = 700, bgP = new Float32Array(bgN * 3); for (let i = 0; i < bgN; i++) { bgP[i * 3] = (Math.random() - .5) * 160; bgP[i * 3 + 1] = (Math.random() - .5) * 110; bgP[i * 3 + 2] = (Math.random() - .5) * 80 - 20; }
+  const bgG = new THREE.BufferGeometry(); bgG.setAttribute('position', new THREE.BufferAttribute(bgP, 3));
+  const bg = new THREE.Points(bgG, new THREE.PointsMaterial({ color: 0x63d3ff, size: .35, transparent: true, opacity: .0, depthWrite: false, blending: THREE.AdditiveBlending })); S.add(bg);
+  loader.load('models/logo.glb', gltf => {
+    let geo = null; gltf.scene.traverse(o => { if (o.isMesh) geo = o.geometry; });
+    if (!geo.attributes.normal) geo.computeVertexNormals();
+    logo = new THREE.Mesh(geo, logoMat); G.add(logo);
+    outline = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 40), new THREE.LineBasicMaterial({ color: 0xbfefff, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending })); G.add(outline);
+    // particles that fly in and settle onto the emblem's surface
+    const pos = geo.attributes.position, idx = geo.index, N = 2600, from = new Float32Array(N * 3), to = new Float32Array(N * 3), rnd = new Float32Array(N);
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    for (let i = 0; i < N; i++) {
+      const tri = Math.floor(Math.random() * idx.count / 3) * 3;
+      a.fromBufferAttribute(pos, idx.getX(tri)); b.fromBufferAttribute(pos, idx.getX(tri + 1)); c.fromBufferAttribute(pos, idx.getX(tri + 2));
+      let u = Math.random(), v = Math.random(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+      const p = a.clone().addScaledVector(b.clone().sub(a), u).addScaledVector(c.clone().sub(a), v);
+      to.set([p.x, p.y, p.z], i * 3);
+      const dir = new THREE.Vector3().randomDirection().multiplyScalar(45 + Math.random() * 45);
+      from.set([dir.x, dir.y, dir.z - 10], i * 3); rnd[i] = Math.random();
+    }
+    const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(from, 3)); dg.setAttribute('aTo', new THREE.BufferAttribute(to, 3)); dg.setAttribute('aR', new THREE.BufferAttribute(rnd, 1));
+    dotMat = new THREE.ShaderMaterial({
+      uniforms: { uP: { value: 0 }, uT: { value: 0 }, uA: { value: 0 }, uPx: { value: R.getPixelRatio() } },
+      vertexShader: `attribute vec3 aTo; attribute float aR; uniform float uP; uniform float uT; uniform float uPx; varying float vR;
+        void main(){ float k = clamp((uP - aR * .35) / .65, 0.0, 1.0); k = k * k * (3.0 - 2.0 * k);
+          vec3 p = mix(position, aTo, k); p += vec3(sin(uT * 2.0 + aR * 30.0), cos(uT * 1.7 + aR * 20.0), 0.0) * (1.0 - k) * 1.5;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_PointSize = (1.6 + aR * 2.2) * uPx * (60.0 / -mv.z); vR = aR; gl_Position = projectionMatrix * mv; }`,
+      fragmentShader: `uniform float uA; varying float vR; void main(){ float d = length(gl_PointCoord - .5); if (d > .5) discard; gl_FragColor = vec4(mix(vec3(.39,.83,1.0), vec3(1.0,.85,.6), step(.93, vR)), uA * (1.0 - d * 2.0)); }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    dots = new THREE.Points(dg, dotMat); G.add(dots);
+    ready = true;
+  }, undefined, () => { ready = true; });
+  // HUD lines: time they appear, text (text can be a function for live values)
+  const LINES = [
+    [.6, 'SUIT MK1 // BOOT SEQUENCE'], [1.05, 'CORE POWER ........ ONLINE'], [2.0, 'PARTICLE LATTICE .. ASSEMBLING'],
+    [4.05, 'EMBLEM L-01 ....... LOCKED'], [5.0, () => 'SUIT MODEL ........ ' + Math.round(loadFrac() * 100) + '%'],
+    [6.2, 'PANELS ............ 9 + 2 LOGOS'], [7.2, 'HOLOGRAM .......... STABLE'], [8.6, 'STANDING BY'], [11.4, 'WELCOME BACK, RAFIK'],
+  ];
+  const lineEls = LINES.map(([, t]) => { const d = el('div', 'iline'); hud.append(d); return d; });
+  const title = $('#ititle');
+  let t0 = 0, running = false, done = false, revealAt = 12, usingAudio = false;
+  const sm = (a, b, x) => { const k = THREE.MathUtils.clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+  const hit = (x, at, k = 4) => x >= at ? Math.exp(-(x - at) * k) : 0;
+  function now() {
+    const m = SFX.music;
+    if (usingAudio && m && !m.paused && m.currentTime > 0) return m.currentTime;
+    return (performance.now() - t0) / 1000;
+  }
+  function frame() {
+    if (done) return;
+    const t = running ? now() : 0, T = performance.now() / 1000;
+    if (ready && logo) {
+      dotMat.uniforms.uP.value = sm(1.0, 4.0, t); dotMat.uniforms.uT.value = T;
+      dotMat.uniforms.uA.value = running ? (sm(.2, 1.0, t) * (1 - sm(4.3, 6.5, t) * .75) * (1 - sm(11.8, 12.3, t))) : .25;
+      logoMat.uniforms.uReveal.value = sm(4.0, 5.4, t) * 1.08; logoMat.uniforms.uTime.value = T;
+      logoMat.uniforms.uGlow.value = hit(t, 4.0, 3) * .9 + sm(11.0, 12.0, t) * .8;
+      logoMat.uniforms.uAlpha.value = 1 - sm(8.0, 9.0, t) * .35 + sm(10.6, 11.9, t) * .35;
+      outline.material.opacity = sm(1.6, 4.0, t) * (.65 - sm(8, 9, t) * .3 + hit(t, 4.0) * .35);
+      // slow turn, settling face-on in the silence before the music
+      G.rotation.y = (1 - sm(7.6, 10.8, t)) * Math.sin(T * .55) * .75;
+      G.rotation.x = (1 - sm(7.6, 10.8, t)) * Math.sin(T * .37) * .12;
+      const zoom = 1 + sm(11.7, 12.4, t) * 1.8 + hit(t, 1.0, 6) * .05 + hit(t, 4.0, 6) * .06;
+      G.scale.setScalar(zoom);
+    }
+    rings.forEach(({ m, spin }, i) => { m.rotation.z += spin * .016; m.material.opacity = sm(1.0 + i * .25, 2.2 + i * .25, t) * (i === 1 ? .25 : .45) * (1 - sm(11.9, 12.3, t)) + hit(t, 4.0) * .3; });
+    ticks.material.opacity = sm(4.0, 5.0, t) * .5 * (1 - sm(11.9, 12.3, t)); ticks.rotation.z -= .0015;
+    bg.material.opacity = sm(0, 2, t) * .55; bg.rotation.y = T * .02;
+    // charging arc through the silence
+    const ch = sm(8.2, 11.6, t); charge.geometry.dispose(); charge.geometry = new THREE.RingGeometry(25.5, 25.85, 160, 1, Math.PI / 2, -Math.max(.001, ch) * Math.PI * 2);
+    charge.material.opacity = ch > 0 ? .8 * (1 - sm(11.9, 12.2, t)) : 0;
+    // shockwaves on the hits
+    [[1.0, 0], [4.0, 1], [12.0, 2]].forEach(([at, i]) => { const w = waves[i], x = t - at; if (x >= 0 && x < 1.6) { const s = 1 + x * (i === 2 ? 9 : 4.5); w.scale.setScalar(s); w.material.opacity = (1 - x / 1.6) * (i === 2 ? .9 : .6); } else w.material.opacity = 0; });
+    // HUD text
+    LINES.forEach(([at, txt], i) => { const on = running && t >= at; const e = lineEls[i]; if (on) { const s = typeof txt === 'function' ? txt() : txt; const n = Math.min(s.length, Math.floor((t - at) * 60)); e.textContent = s.slice(0, n) + (n < s.length ? '▌' : ''); e.classList.add('on'); } });
+    title.classList.toggle('on', running && t > 8.9);
+    const lf = loadFrac(); bar.style.width = (lf * 100).toFixed(1) + '%'; pct.textContent = 'LOADING ' + Math.round(lf * 100) + '%';
+    if (running && t >= revealAt && lf >= 1) finish();
+    else if (running && t >= revealAt) pct.textContent = 'FINALIZING ' + Math.round(lf * 100) + '%';
+    R.render(S, C);
+    requestAnimationFrame(frame);
+  }
+  function start() {
+    if (running) return; running = true; root.classList.add('run'); gate.hidden = true; skip.hidden = false;
+    usingAudio = SFX.soundOn && SFX.playIntro();
+    t0 = performance.now();
+  }
+  function finish() {
+    if (done) return; done = true; api.active = false;
+    root.classList.add('out'); SFX.introDone(); document.dispatchEvent(new Event('introdone'));
+    setTimeout(() => { root.remove(); R.dispose(); }, 1100);
+  }
+  gate.addEventListener('click', start);
+  skip.addEventListener('click', () => { revealAt = 0; if (usingAudio) SFX.skipTo(12); if (loadFrac() >= 1) finish(); });
+  // with sound off there is nothing to unlock, so play the sequence straight away
+  if (!SFX.soundOn) setTimeout(start, 200);
+  requestAnimationFrame(frame);
+  return api;
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
