@@ -914,7 +914,7 @@ function atxScale(m) {   // m in inches
 }
 async function saveMeasure(measure) {
   if (!db) return; const had = atxScale(state.measure)?.scale; state.measure = measure; render();
-  const r = atxScale(measure); if (r && r.scale !== had) EV.say('Print the pattern at ' + Math.round(r.scale * 100) + ' percent' + (r.w ? '.' : '. Give me your waist and I can fine-tune that.'), { interrupt: true });
+  const r = atxScale(measure); if (r && r.scale !== had) EV.sizing(r);
   try { await serial('parts/sizing', () => db.doc('parts/sizing').set({ done: {}, measure, updatedAt: new Date().toISOString() })); }
   catch (e) { writeFail(e); }
 }
@@ -1997,6 +1997,7 @@ const SFX = (() => {
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}   // iPhone: play even with the silent switch on, like a media app
     ctx = new AC();
     master = ctx.createGain(); master.gain.value = 1; master.connect(ctx.destination);
     // everything passes a gentle low-pass and a long, dark tail: glassy, never chirpy
@@ -2173,11 +2174,11 @@ const EV = (() => {
   const syn = window.speechSynthesis, store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const keep = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
   let on = store('mk1-ev') !== 'off', voice = null, syncUnlocked = false, hideT = 0, pending = null;
-  // female English voices, best first; whatever the device has
+  /* ---------- the basic device voice (fallback) ---------- */
   const PREF = ['Ava (Premium)', 'Zoe (Premium)', 'Ava (Enhanced)', 'Zoe (Enhanced)', 'Samantha (Enhanced)', 'Serena (Enhanced)', 'Allison (Enhanced)', 'Susan (Enhanced)',
     'Microsoft Libby Online', 'Microsoft Sonia Online', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Google UK English Female', 'Google US English',
     'Samantha', 'Ava', 'Allison', 'Serena', 'Karen', 'Moira', 'Tessa', 'Zoe', 'Susan', 'Victoria', 'Kate', 'Fiona', 'Microsoft Zira'];
-  const FEMALE = /female|woman|samantha|ava|allison|serena|karen|moira|tessa|zoe|susan|victoria|kate|fiona|libby|sonia|aria|jenny|zira|hazel|susan|emma|natasha|clara|catherine|joanna|salli|kendra|kimberly|ivy/i;
+  const FEMALE = /female|woman|samantha|ava|allison|serena|karen|moira|tessa|zoe|susan|victoria|kate|fiona|libby|sonia|aria|jenny|zira|hazel|emma|natasha|clara|catherine|joanna|salli|kendra|kimberly|ivy/i;
   const all = () => (syn ? syn.getVoices() : []).filter(v => /^en/i.test(v.lang));
   const isFemale = v => FEMALE.test(v.name.replace(/\bmale\b/i, '')) && !/\bmale\b/i.test(v.name) || v.name === 'Google US English';
   const voices = () => all().filter(isFemale).sort((a, b) => a.name.localeCompare(b.name));
@@ -2186,164 +2187,239 @@ const EV = (() => {
     voice = list.find(v => v.name === want) || PREF.map(n => list.find(v => v.name === n || v.name.startsWith(n + ' '))).find(Boolean) || list.find(isFemale) || list[0] || null;
   }
   if (syn) { pick(); syn.addEventListener?.('voiceschanged', () => { pick(); if (current === 'suit' && nav.level === 0) renderDetail(); }); }
-  // ---- natural voice: Kokoro on this device (see ev-voice.js); the device voice is the fallback ----
-  const NATURAL = [['af_heart', 'Heart · American'], ['af_bella', 'Bella · American'], ['af_nicole', 'Nicole · American, soft'], ['bf_emma', 'Emma · British']];
-  const canNatural = typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined';
+
+  /* ---------- the natural voice ----------
+     Almost everything she says is pre-recorded with the Kokoro-82M "Heart" voice (voice/af_heart.*), so it plays instantly.
+     Anything not in the library (print job names, other voices) is generated on the device by ev-voice.js. */
+  const NATURAL = [['af_heart', 'Heart · American · instant'], ['af_bella', 'Bella · American · made on your phone'], ['af_nicole', 'Nicole · soft · made on your phone'], ['bf_emma', 'Emma · British · made on your phone']];
+  const LIBRARY_VOICE = 'af_heart';
+  const canNatural = typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined';
   let engine = canNatural && store('mk1-ev-engine') !== 'system' ? 'natural' : 'system';
-  let nvoice = store('mk1-ev-nvoice') || 'af_heart', worker = null, nstate = 'idle', nprog = 0, nmb = 0, nerr = '', lastMsg = 0, lineId = 0, playing = [], nextAt = 0, waiting = null;
-  const refreshPanel = () => { if (current === 'suit' && nav.level === 0 && document.getElementById('ev-status')) document.getElementById('ev-status').textContent = statusText(); };
+  let nvoice = store('mk1-ev-nvoice') || LIBRARY_VOICE;
+  let lib = null, libState = 'idle', decoded = new Map();
+  let worker = null, wstate = 'idle', wprog = 0, wmb = 0, werr = '', lastMsg = 0, reqs = new Map(), rid = 0;
+  let lineId = 0, playing = [], nextAt = 0, talking = false;
+  const refreshPanel = () => { const e = document.getElementById('ev-status'); if (e) e.textContent = statusText(); };
   function statusText() {
     if (engine !== 'natural') return 'Basic device voice';
-    return { idle: 'Natural voice', loading: nmb ? 'Downloading her voice · ' + Math.round(nprog * 100) + '% of ' + nmb + ' MB (one time). Until then she uses the device voice.' : 'Starting her voice engine…',
-      ready: 'Natural voice ready · works offline', failed: 'Natural voice could not load (' + (nerr || 'unknown error') + '). Using the device voice.' }[nstate];
+    if (nvoice === LIBRARY_VOICE) return libState === 'ready' ? 'Natural voice ready · ' + Object.keys(lib.clips).length + ' lines recorded, works offline' : libState === 'failed' ? 'Could not load her recorded voice · using the device voice' : 'Loading her voice…';
+    if (wstate === 'loading') return wmb ? 'Downloading the voice engine · ' + Math.round(wprog * 100) + '% of ' + wmb + ' MB (one time)' : 'Starting the voice engine…';
+    if (wstate === 'failed') return 'Voice engine could not load (' + (werr || 'unknown') + ') · using the device voice';
+    return wstate === 'ready' ? 'Voice engine ready · lines are made on this device, so expect a short wait' : 'This voice is made on your phone (downloads about 90 MB once)';
   }
-  function startNatural() {
-    if (!canNatural || worker || engine !== 'natural' || nstate === 'failed') return;
-    try { worker = new Worker('ev-voice.js', { type: 'module' }); } catch (e) { nstate = 'failed'; return; }
-    nstate = 'loading'; lastMsg = performance.now(); refreshPanel();
-    const fail = why => { if (nstate === 'ready') return; nstate = 'failed'; nerr = why; refreshPanel(); try { worker.terminate(); } catch (e) {} worker = null; waiting = null; };
-    // a download that stops moving (lost connection, or the phone ran out of memory and killed the worker) falls back
-    const dog = setInterval(() => { if (nstate !== 'loading') return clearInterval(dog); if (performance.now() - lastMsg > 60000) { clearInterval(dog); fail(nmb ? 'download stalled at ' + Math.round(nprog * 100) + '%' : 'engine did not start'); } }, 5000);
+  function loadLibrary() {
+    if (libState !== 'idle') return; libState = 'loading';
+    Promise.all([fetch('voice/' + LIBRARY_VOICE + '.json').then(r => { if (!r.ok) throw 0; return r.json(); }), fetch('voice/' + LIBRARY_VOICE + '.bin').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })])
+      .then(([idx, bin]) => { lib = { clips: idx.clips, bin }; libState = 'ready'; refreshPanel(); })
+      .catch(() => { libState = 'failed'; refreshPanel(); });
+  }
+  async function clip(text) {
+    if (nvoice !== LIBRARY_VOICE || !lib) return null;
+    const c = lib.clips[text]; if (!c) return null;
+    if (decoded.has(text)) return decoded.get(text);
+    const p = SFX.ctx.decodeAudioData(lib.bin.slice(c[0], c[0] + c[1])); decoded.set(text, p);
+    try { return await p; } catch (e) { decoded.delete(text); return null; }
+  }
+  function startWorker() {
+    if (worker || wstate === 'failed' || typeof Worker === 'undefined') return;
+    try { worker = new Worker('ev-voice.js', { type: 'module' }); } catch (e) { wstate = 'failed'; werr = 'no worker'; return; }
+    wstate = 'loading'; lastMsg = performance.now(); refreshPanel();
+    const fail = why => { wstate = 'failed'; werr = why; refreshPanel(); try { worker.terminate(); } catch (e) {} worker = null; reqs.forEach(r => r(null)); reqs.clear(); };
+    const dog = setInterval(() => { if (wstate !== 'loading') return clearInterval(dog); if (performance.now() - lastMsg > 60000) { clearInterval(dog); fail(wmb ? 'download stalled at ' + Math.round(wprog * 100) + '%' : 'engine did not start'); } }, 5000);
     worker.onmessage = e => {
       const m = e.data; lastMsg = performance.now();
-      if (m.type === 'progress') { nprog = m.total ? m.loaded / m.total : 0; nmb = Math.round(m.total / 1e6); refreshPanel(); }
-      else if (m.type === 'ready') { nstate = 'ready'; refreshPanel(); }
-      else if (m.type === 'error' && !m.id) fail(m.message);
-      else if (m.type === 'error') { if (m.id === lineId) endNatural(); }
-      else if (m.type === 'audio') playChunk(m);
+      if (m.type === 'progress') { wprog = m.total ? m.loaded / m.total : 0; wmb = Math.round(m.total / 1e6); refreshPanel(); }
+      else if (m.type === 'ready') { wstate = 'ready'; refreshPanel(); }
+      else if (m.type === 'error' && m.rid == null) fail(m.message);
+      else if (m.type === 'audio' || m.type === 'error') { const r = reqs.get(m.rid); reqs.delete(m.rid); if (!r) return;
+        if (m.type === 'error') return r(null);
+        const ctx = SFX.ctx, b = ctx.createBuffer(1, m.data.length, m.rate); b.copyToChannel(m.data, 0); r(b); }
     };
     worker.onerror = e => fail(e?.message || 'worker crashed');
     worker.postMessage({ type: 'load' });
   }
-  function stopNatural() { lineId++; worker?.postMessage({ type: 'stop' }); playing.forEach(src => { try { src.onended = null; src.stop(); } catch (e) {} }); playing = []; nextAt = 0; }
-  function speakNatural(text, opts = {}) {
-    stopNatural();
-    const id = ++lineId; speakNatural.text = text; speakNatural.read = 1800 + text.length * 45;
-    worker.postMessage({ type: 'speak', id, text: text.replace(/\bE\.V\./g, 'E V'), voice: nvoice, speed: 1 });
+  const generate = text => new Promise(res => { startWorker(); if (!worker) return res(null); const id = ++rid; reqs.set(id, res); worker.postMessage({ type: 'gen', rid: id, text: text.replace(/\bE\.V\./g, 'E V'), voice: nvoice }); });
+  function stopNatural() {
+    lineId++; worker?.postMessage({ type: 'stop' }); reqs.forEach(r => r(null)); reqs.clear();
+    playing.forEach(src => { try { src.onended = null; src.stop(); } catch (e) {} }); playing = []; nextAt = 0;
+    if (talking) { talking = false; box()?.classList.remove('talk'); SFX.duck(false); }
   }
-  function playChunk(m) {
-    if (m.id !== lineId) return;
-    const ctx = SFX.ctx; if (!ctx || !SFX.out) return;
-    const buf = ctx.createBuffer(1, m.data.length, m.rate); buf.copyToChannel(m.data, 0);
-    const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = 1.15; src.buffer = buf; src.connect(g); g.connect(SFX.out);
-    const at = Math.max(ctx.currentTime + .02, nextAt); src.start(at); nextAt = at + buf.duration + .12;   // a short breath between sentences
-    playing.push(src);
-    if (m.i === 0) { caption(speakNatural.text, true); SFX.duck(true); }
-    if (m.last) src.onended = () => { if (m.id === lineId) endNatural(); };
+  const natNow = () => engine === 'natural' && (wstate === 'ready' || !lib);   // no library: everything goes the generated/device route anyway
+  // can the natural voice say all of this right now without generating anything?
+  const covered = parts => nvoice === LIBRARY_VOICE && lib && parts.every(p => lib.clips[p]);
+  async function playNatural(parts) {
+    stopNatural(); const id = lineId, ctx = SFX.ctx;
+    for (let i = 0; i < parts.length; i++) {
+      let buf = await clip(parts[i]);
+      if (!buf && id === lineId) buf = await generate(parts[i]);
+      if (id !== lineId) return;
+      if (!buf) continue;
+      const src = ctx.createBufferSource(), g = ctx.createGain(); g.gain.value = 1.1; src.buffer = buf; src.connect(g); g.connect(SFX.out);
+      const at = Math.max(ctx.currentTime + .03, nextAt); src.start(at); nextAt = at + buf.duration + (/[.!?]$/.test(parts[i]) ? .16 : .06);
+      playing.push(src);
+      if (!talking) { talking = true; box()?.classList.add('talk'); SFX.duck(true); }
+      if (i === parts.length - 1) src.onended = () => { if (id === lineId) { talking = false; playing = []; box()?.classList.remove('talk'); SFX.duck(false); hideSoon(1400); } };
+    }
   }
-  function endNatural() { playing = []; box()?.classList.remove('talk'); SFX.duck(false); hideSoon(1400); }
-  startNatural();
-  // Phones only allow sound to start from a tap: the device voice needs speech started inside a tap, the natural voice
-  // needs the audio engine awake. The first tap unlocks both; a line that could not play waits for the next tap.
-  // (iPhone only counts the end of a tap, so listen for click / touchend.)
+  /* ---------- unlocking sound: phones only allow it to start from a tap (the end of a tap on iPhone) ---------- */
   const audioUp = () => SFX.ctx?.state === 'running';
   const unlock = () => {
     SFX.init();
     if (syn && !syncUnlocked) {
       syncUnlocked = true;
-      // iOS keeps the device voice blocked unless real speech starts inside the tap
-      if (!pending && !unlock.said && on && SFX.soundOn && !(engine === 'natural' && nstate === 'ready')) { unlock.said = true; speak('E.V. online.', {}, true); }
+      if (!pending && !unlock.said && on && SFX.soundOn && engine === 'system') { unlock.said = true; speak('E.V. online.', {}, true); }
       else if (!pending) { const u = new SpeechSynthesisUtterance('.'); u.volume = 0; syn.speak(u); }
     }
-    if (pending) { const p = pending; pending = null; say(p.text, p.opts, true); }
+    if (pending) { const p = pending; pending = null; say(p.parts, p.opts, true); }
   };
   ['click', 'touchend', 'keydown'].forEach(ev => window.addEventListener(ev, () => { if (!syncUnlocked || pending || !audioUp()) unlock(); }, { passive: true, capture: true }));
   const box = () => $('#ev'), txt = () => $('#evt');
-  function caption(text, talking) {
-    const b = box(); if (!b) return; clearTimeout(hideT);
-    txt().textContent = text; b.classList.add('on'); b.classList.toggle('talk', !!talking);
-  }
+  function caption(text) { const b = box(); if (!b) return; clearTimeout(hideT); txt().textContent = text; b.classList.add('on'); }
   function hideSoon(ms) { clearTimeout(hideT); hideT = setTimeout(() => box()?.classList.remove('on', 'talk'), ms); }
-  function say(text, opts = {}, fromTap) {
-    if (!on || !text) return;
-    caption(text, false); hideSoon(6000 + text.length * 90);
+  const splitParts = t => t.match(/[^.!?]+[.!?]*/g)?.map(s => s.trim()).filter(Boolean) || [t];
+  function say(parts, opts = {}, fromTap) {
+    if (!on || !parts) return;
+    if (typeof parts === 'string') parts = splitParts(parts);
+    parts = parts.filter(Boolean); if (!parts.length) return;
+    const text = parts.join(' ');
+    caption(text); hideSoon(6000 + text.length * 90);
     if (!SFX.soundOn) { hideSoon(1800 + text.length * 45); return; }
-    if (engine === 'natural' && nstate === 'ready') {
-      if (audioUp()) { speakNatural(text, opts); return; }
-      if (fromTap) { setTimeout(() => { if (audioUp()) speakNatural(text, opts); }, 300); return; }
-      pending = { text, opts }; return;
+    if (engine === 'natural' && libState !== 'failed' || engine === 'natural' && nvoice !== LIBRARY_VOICE && wstate !== 'failed') {
+      const go = () => {
+        // recorded lines play at once; a line that needs generating plays in the device voice until the engine is ready
+        if (covered(parts) || (wstate === 'ready' && (nvoice !== LIBRARY_VOICE || lib))) return playNatural(parts);
+        if (nvoice !== LIBRARY_VOICE || lib) startWorker();
+        if (syn && (syncUnlocked || fromTap)) speak(text, opts); else if (syn) pending = { parts, opts };
+      };
+      if (audioUp()) return go();
+      if (fromTap) return setTimeout(() => { if (audioUp()) go(); }, 300);
+      pending = { parts, opts }; return;
     }
-    if (engine === 'natural' && nstate !== 'failed') startNatural();   // still downloading: the device voice fills in meanwhile
     if (!syn) return;
-    if (!syncUnlocked && !fromTap) { pending = { text, opts }; return; }
+    if (!syncUnlocked && !fromTap) { pending = { parts, opts }; return; }
     speak(text, opts);
   }
   function speak(text, opts = {}, quiet) {
     if (opts.interrupt) syn.cancel();
+    stopNatural();
     const u = new SpeechSynthesisUtterance(text);
-    if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-GB';
+    if (voice) { u.voice = voice; u.lang = voice.lang; } else u.lang = 'en-US';
     u.rate = 1.02; u.pitch = 1.06; u.volume = 1;
     let started = false;
-    u.onstart = () => { started = true; if (!quiet) caption(text, true); SFX.duck(true); };
-    // if the device silently refused (no tap yet since the app woke up), hold the line for the next tap
-    setTimeout(() => { if (!started && !syn.speaking) { syn.cancel(); syncUnlocked = false; if (!quiet) pending = { text, opts }; } }, 1600);
+    u.onstart = () => { started = true; if (!quiet) box()?.classList.add('talk'); SFX.duck(true); };
+    setTimeout(() => { if (!started && !syn.speaking) { syn.cancel(); syncUnlocked = false; if (!quiet) pending = { parts: splitParts(text), opts }; } }, 1600);
     const t0 = performance.now(), read = 1800 + text.length * 45;
-    const end = () => { if (quiet) { SFX.duck(false); return; } box()?.classList.remove('talk'); SFX.duck(false); hideSoon(Math.max(1400, read - (performance.now() - t0))); };   // if speech fails, the caption stays long enough to read
-    u.onend = end; u.onerror = end;
+    u.onend = u.onerror = () => { SFX.duck(false); if (quiet) return; box()?.classList.remove('talk'); hideSoon(Math.max(1400, read - (performance.now() - t0))); };
     syn.speak(u);
-    if (!quiet) hideSoon(4000 + text.length * 90);   // in case the device never reports the end
   }
-  // ---- what she knows ----
+
+  /* ---------- what she says: every line is built from fixed sentences so they can be pre-recorded ---------- */
   const pick1 = a => a[Math.floor(Math.random() * a.length)];
-  const counts = () => { const n = FABRIC.length; return { n, painted: FABRIC.filter(i => state.panels[i]?.painted).length, sewn: FABRIC.filter(i => state.panels[i]?.sewn).length }; };
-  const dayMs = 864e5, dayOf = s => new Date(s + 'T00:00:00');
-  function scheduleLine(c) {
+  const lc = s => s.charAt(0).toLowerCase() + s.slice(1);
+  const N = () => FABRIC.length;
+  const counts = () => ({ n: N(), painted: FABRIC.filter(i => state.panels[i]?.painted).length, sewn: FABRIC.filter(i => state.panels[i]?.sewn).length });
+  const dayMs = 864e5, dayOf = s => new Date(s + 'T00:00:00'), longDate = s => new Date(s + 'T12:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const PHASE_NAME = { 'Pattern': 'the pattern phase', 'Cut & puff paint': 'the cutting and puff painting phase', 'Sew the body': 'the sewing phase', 'Mask': 'the mask phase' };
+  const L = {
+    hello: ['Working late again, Rafik.', 'Good morning, Rafik.', 'Good afternoon, Rafik.', 'Good evening, Rafik.'],
+    manual: ['Status report.', 'Here\'s where we are.', 'Quick update.'],
+    intro: ['I\'m E.V.', 'I\'ll keep track of the suit with you.'],
+    none: 'No panels painted yet.',
+    painted: p => p + ' of ' + N() + ' panels painted.', sewn: s => s + ' of ' + N() + ' panels sewn.', andPainted: p => p + ' painted.',
+    days: d => d === 1 ? '1 day to target.' : d + ' days to target.',
+    phase: ph => ph.pause ? 'It\'s the finals pause until ' + longDate(ph.e) + '.' : 'We\'re in ' + (PHASE_NAME[ph.n.replace(/^P\d · /, '')] || ph.n.toLowerCase()) + ' until ' + longDate(ph.e) + '.',
+    pauseMore: ['The suit can wait.', 'Go study.'],
+    behind: (g, what) => 'You\'re about ' + g + ' panels behind on ' + what + '.', ahead: what => 'You\'re ahead of schedule on ' + what + '.', onTrack: 'Right on schedule.',
+    starts: () => 'The build starts ' + longDate(PHASES[0].s) + '.', finished: ['The suit is finished.', 'Not bad, Rafik.'], late: ['We\'re past the target date.', 'Let\'s close it out.'],
+    nextUp: t => 'Next up: ' + lc(t) + '.', next: t => 'Next: ' + lc(t) + '.',
+    prints: n => n + ' prints are running.',
+    paintedP: name => name + ', painted.', cure: 'Let it cure before you sew it.', thatsP: p => 'That\'s ' + p + ' of ' + N() + '.',
+    sewnP: name => name + ', sewn.', ofN: s => s + ' of ' + N() + '.', toGo: r => r + ' to go.', finishes: r => 'That finishes the ' + r.toLowerCase() + '.',
+    allSewn: ['That\'s every panel sewn, Rafik.', 'Time for a fitting.'],
+    cast: name => name + ', cast.', glueIt: 'Glue it on once the panel is stretched.', glued: name => name + ' is on the suit.',
+    ack: ['Done.', 'Checked off.', 'Got it.'], partDone: name => name + ': everything done.',
+    failedMore: 'Check the first layer and requeue it when you\'re ready.',
+    size: pct => 'Print the pattern at ' + pct + ' percent.', sizeMore: 'Give me your waist and I can fine-tune that.',
+    misc: ['E.V. online.', 'I\'m here.', 'This is how I sound now, Rafik.', 'Print started.', 'Print finished.', 'Print failed.', 'One print is running.'],
+  };
+  function scheduleParts(c) {
     const now = new Date(), i = PHASES.findIndex(ph => now >= dayOf(ph.s) && now < new Date(dayOf(ph.e).getTime() + dayMs));
-    if (now < dayOf(PHASES[0].s)) return 'The build starts ' + fmtDate(PHASES[0].s + 'T12:00') + '.';
-    if (i < 0) return c.sewn === c.n ? 'The suit is finished. Not bad, Rafik.' : 'We are past the target date. Let\'s close it out.';
-    const ph = PHASES[i], label = ph.n.replace(/^P\d · /, ''), until = new Date(ph.e + 'T12:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-    const name = ({ 'Pattern': 'the pattern phase', 'Cut & puff paint': 'the cutting and puff painting phase', 'Sew the body': 'the sewing phase', 'Mask': 'the mask phase' })[label] || label.toLowerCase();
-    if (ph.pause) return 'It\'s the finals pause until ' + until + '. The suit can wait. Go study.';
+    if (now < dayOf(PHASES[0].s)) return [L.starts()];
+    if (i < 0) return c.sewn === c.n ? L.finished : L.late;
+    const ph = PHASES[i];
+    if (ph.pause) return [L.phase(ph), ...L.pauseMore];
     const frac = (now - dayOf(ph.s)) / (dayOf(ph.e) - dayOf(ph.s) + dayMs);
-    const track = (done, label) => { const want = Math.round(frac * c.n), gap = want - done;
-      return gap > 3 ? 'You\'re about ' + gap + ' panels behind on ' + label + '.' : gap < -3 ? 'You\'re ahead of schedule on ' + label + '.' : 'Right on schedule.'; };
-    if (/paint/i.test(ph.n)) return 'We\'re in ' + name + ' until ' + until + '. ' + track(c.painted, 'painting');
-    if (/sew/i.test(ph.n)) return 'We\'re in ' + name + ' until ' + until + '. ' + track(c.sewn, 'sewing');
-    return 'We\'re in ' + name + ' until ' + until + '.';
+    const track = (done, what) => { const gap = Math.round(frac * c.n) - done; return gap > 3 ? L.behind(gap, what) : gap < -3 ? L.ahead(what) : L.onTrack; };
+    if (/paint/i.test(ph.n)) return [L.phase(ph), track(c.painted, 'painting')];
+    if (/sew/i.test(ph.n)) return [L.phase(ph), track(c.sewn, 'sewing')];
+    return [L.phase(ph)];
   }
-  function nextTask() { const t = byId.body.tasks.find(([id]) => !state.done.body?.[id]); return t ? 'Next up: ' + t[1].charAt(0).toLowerCase() + t[1].slice(1) + '.' : ''; }
   function brief(manual) {
-    const h = new Date().getHours(), c = counts();
-    const hello = manual ? pick1(['Status report.', 'Here\'s where we are.', 'Quick update.']) : (h < 5 ? 'Working late again, Rafik.' : h < 12 ? 'Good morning, Rafik.' : h < 18 ? 'Good afternoon, Rafik.' : 'Good evening, Rafik.');
-    const intro = !manual && store('mk1-ev-met') !== '1' ? ' I\'m E.V. I\'ll keep track of the suit with you.' : '';
+    const h = new Date().getHours(), c = counts(), parts = [];
+    parts.push(manual ? pick1(L.manual) : L.hello[h < 5 ? 0 : h < 12 ? 1 : h < 18 ? 2 : 3]);
+    if (!manual && store('mk1-ev-met') !== '1') parts.push(...L.intro);
     if (!manual) keep('mk1-ev-met', '1');
-    const prog = c.sewn ? c.sewn + ' of ' + c.n + ' panels sewn, ' + c.painted + ' painted.' : c.painted ? c.painted + ' of ' + c.n + ' panels painted.' : 'No panels painted yet.';
-    const days = Math.ceil((dayOf(TARGET) - new Date()) / dayMs), printing = state.jobs.filter(j => j.status === 'printing');
-    const extra = printing.length ? (printing.length === 1 ? ' One print is running: ' + printing[0].name + '.' : ' ' + printing.length + ' prints are running.') : '';
-    say(hello + intro + ' ' + prog + ' ' + scheduleLine(c) + (c.painted < 3 ? ' ' + nextTask() : '') + extra + (days > 0 ? ' ' + days + ' days to target.' : ''), { interrupt: manual });
+    if (c.sewn) parts.push(L.sewn(c.sewn), L.andPainted(c.painted)); else parts.push(c.painted ? L.painted(c.painted) : L.none);
+    parts.push(...scheduleParts(c));
+    if (c.painted < 3) { const t = byId.body.tasks.find(([id]) => !state.done.body?.[id]); if (t) parts.push(L.nextUp(t[1])); }
+    const printing = state.jobs.filter(j => j.status === 'printing');
+    if (printing.length === 1) parts.push(natNow() ? 'One print is running: ' + printing[0].name + '.' : 'One print is running.'); else if (printing.length > 1) parts.push(L.prints(printing.length));
+    const days = Math.ceil((dayOf(TARGET) - new Date()) / dayMs); if (days > 0) parts.push(L.days(days));
+    say(parts, { interrupt: manual });
   }
   function step(id, field, onState) {
     const p = panelById[id]; if (!p || !onState) return;
-    const name = p.name.charAt(0).toLowerCase() + p.name.slice(1), c = counts();
-    if (field === 'painted') return say(pick1([p.name + ', painted. Let it cure before you sew it.', 'Painted. That\'s ' + c.painted + ' of ' + c.n + '.', p.name + ' is ready to sew once it\'s dry.']), { interrupt: true });
+    const c = counts();
+    if (field === 'painted') return say([L.paintedP(p.name), pick1([L.cure, L.thatsP(c.painted)])], { interrupt: true });
     if (field === 'sewn') {
-      if (c.sewn === c.n) return say('That\'s every panel sewn, Rafik. Time for a fitting.', { interrupt: true });
+      if (c.sewn === c.n) return say(L.allSewn, { interrupt: true });
       const r = p.region && REGIONS[p.region], rc = r ? regionCounts(p.region) : null;
-      if (rc && rc.sewn === rc.n && rc.n > 1) return say('That finishes the ' + r.name.toLowerCase() + '. ' + c.sewn + ' of ' + c.n + ' sewn.', { interrupt: true });
-      return say(pick1([p.name + ', sewn. ' + c.sewn + ' of ' + c.n + '.', 'Sewn. ' + (c.n - c.sewn) + ' to go.', 'Nice and clean. ' + c.sewn + ' of ' + c.n + ' sewn.']), { interrupt: true });
+      if (rc && rc.sewn === rc.n && rc.n > 1) return say([L.sewnP(p.name), L.finishes(r.name)], { interrupt: true });
+      return say([L.sewnP(p.name), pick1([L.ofN(c.sewn), L.toGo(c.n - c.sewn)])], { interrupt: true });
     }
-    if (field === 'cast') return say(p.name + ', cast. Glue it on once the panel is stretched.', { interrupt: true });
-    if (field === 'glued') return say(p.name + ' is on the suit.', { interrupt: true });
+    if (field === 'cast') return say([L.cast(p.name), L.glueIt], { interrupt: true });
+    if (field === 'glued') return say([L.glued(p.name)], { interrupt: true });
   }
   function task(partId, taskId, onState) {
     if (!onState) return; const pr = progress(byId[partId]);
-    if (pr.st === 'done') return say(byId[partId].name + ': everything done.', { interrupt: true });
+    if (pr.st === 'done') return say([L.partDone(byId[partId].name)], { interrupt: true });
     const next = byId[partId].tasks.find(([id]) => !state.done[partId]?.[id]);
-    say(pick1(['Done.', 'Checked off.', 'Got it.']) + (next ? ' Next: ' + next[1].charAt(0).toLowerCase() + next[1].slice(1) + '.' : ''), { interrupt: true });
+    say([pick1(L.ack), next ? L.next(next[1]) : ''], { interrupt: true });
   }
   function job(id, status) {
     const j = state.jobs.find(x => x.id === id); if (!j) return;
-    if (status === 'printing') say('Starting ' + j.name + '.', { interrupt: true });
-    else if (status === 'done') say(j.name + ' finished printing.', { interrupt: true });
-    else if (status === 'failed') say(j.name + ' failed. Check the first layer and requeue it when you\'re ready.', { interrupt: true });
+    // job names have to be generated; until the on-device engine is warm she uses a recorded line instead
+    const n = natNow();
+    if (status === 'printing') say([n ? 'Starting ' + j.name + '.' : 'Print started.'], { interrupt: true });
+    else if (status === 'done') say([n ? j.name + ' finished printing.' : 'Print finished.'], { interrupt: true });
+    else if (status === 'failed') say([n ? j.name + ' failed.' : 'Print failed.', L.failedMore], { interrupt: true });
+    if (!n && engine === 'natural') startWorker();
+  }
+  function sizing(r) { say([L.size(Math.round(r.scale * 100)), r.w ? '' : L.sizeMore], { interrupt: true }); }
+  // every fixed sentence she can say, for recording the library (see the build notes in voice/README.md)
+  function allLines() {
+    const out = new Set(), add = (...a) => a.flat().forEach(x => x && out.add(x)), n = N();
+    add(L.hello, L.manual, L.intro, L.none, L.pauseMore, L.onTrack, L.starts(), L.finished, L.late, L.allSewn, L.cure, L.glueIt, L.ack, L.failedMore, L.sizeMore, L.misc);
+    for (let i = 0; i <= n; i++) add(L.painted(i), L.sewn(i), L.andPainted(i), L.thatsP(i), L.ofN(i), L.toGo(i));
+    for (let g = 4; g <= n; g++) add(L.behind(g, 'painting'), L.behind(g, 'sewing'));
+    add(L.ahead('painting'), L.ahead('sewing'));
+    for (let d = 1; d <= 160; d++) add(L.days(d));
+    for (let k = 2; k <= 12; k++) add(L.prints(k));
+    for (let q = 70; q <= 140; q++) add(L.size(q));
+    PHASES.forEach(ph => add(L.phase(ph)));
+    PANELS.forEach(p => { if (p.item) return; if (p.logo) add(L.cast(p.name), L.glued(p.name)); else add(L.paintedP(p.name), L.sewnP(p.name)); });
+    Object.values(REGIONS).forEach(r => add(L.finishes(r.name)));
+    PARTS.forEach(p => { add(L.partDone(p.name)); p.tasks.forEach(([, t]) => add(L.next(t), L.nextUp(t))); });
+    return [...out];
   }
   function setOn(v) { on = v; keep('mk1-ev', v ? 'on' : 'off'); if (!v) { syn?.cancel(); stopNatural(); box()?.classList.remove('on', 'talk'); SFX.duck(false); } }
+  if (engine === 'natural') loadLibrary();
   return {
-    get on() { return on; }, setOn, say, brief, step, task, job, voices, statusText,
+    get on() { return on; }, setOn, say, brief, step, task, job, sizing, voices, statusText, allLines,
     get engine() { return engine; }, canNatural, NATURAL, get nvoice() { return nvoice; },
-    setEngine(e) { engine = e; keep('mk1-ev-engine', e); stopNatural(); syn?.cancel(); if (e === 'natural') { if (nstate === 'failed') nstate = 'idle'; startNatural(); } },
+    setEngine(e) { engine = e; keep('mk1-ev-engine', e); stopNatural(); syn?.cancel(); if (e === 'natural') { loadLibrary(); if (wstate === 'failed') wstate = 'idle'; } },
     voiceName: () => engine === 'natural' ? nvoice : voice?.name,
-    setVoice(name) { if (engine === 'natural') { nvoice = name; keep('mk1-ev-nvoice', name); } else { keep('mk1-ev-voice', name); pick(); } },
+    setVoice(name) { if (engine === 'natural') { nvoice = name; keep('mk1-ev-nvoice', name); if (name !== LIBRARY_VOICE) startWorker(); } else { keep('mk1-ev-voice', name); pick(); } },
   };
 })();
 (function () {
@@ -2499,7 +2575,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v16'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v17'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;

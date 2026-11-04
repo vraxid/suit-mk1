@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v16';
+const VERSION = 'mk1-v17';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
@@ -24,6 +24,8 @@ const FILES = [
   "vendor/jsm/utils/BufferGeometryUtils.js",
   "vendor/three.module.min.js",
   "ev-voice.js",
+  "voice/af_heart.json",
+  "voice/af_heart.bin",
   "vendor/kokoro/kokoro.web.js",
   "vendor/kokoro/ort-wasm-simd-threaded.jsep.mjs",
 ];
