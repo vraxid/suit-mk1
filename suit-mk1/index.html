@@ -1059,10 +1059,11 @@ function holoMat(color, opacity) {
         float shimmer = 0.55 + 0.45 * sin(uTime * 1.3 + vW.y * 0.15 + vW.x * 0.08);
         float scan = uScan * (1.0 - smoothstep(0.0, uScanW, abs(vW.y - uScanY)));
         vec3 c = mix(uColor, vec3(1.0, 0.71, 0.28), uGlow * 0.8);
-        float a = uOpacity * (0.12 + f * 0.9) * (0.82 + 0.18 * band) + sweep * 0.18;
-        a += pat * shimmer * (0.18 + f * 0.5) + uPat * 0.08;
+        float vis = clamp(uOpacity * 3.0, 0.0, 1.0);   // faded-out pieces lose their sweeps and grid too
+        float a = uOpacity * (0.12 + f * 0.9) * (0.82 + 0.18 * band) + sweep * 0.18 * vis;
+        a += (pat * shimmer * (0.18 + f * 0.5) + uPat * 0.08) * vis;
         a *= 1.0 + uGlow * 1.2;
-        a += scan * 0.55;
+        a += scan * 0.55 * vis;
         vec3 col = c * (0.55 + f * 0.9 + sweep + pat * 0.8) + vec3(1.0, 0.85, 0.6) * scan;
         gl_FragColor = vec4(col, a);
       }`,
@@ -1335,6 +1336,7 @@ function stepSets(dt, t) {
       });
     });
     set.k = kmax;
+    stepInserts(set, dt);
     if (set.ghostMat) set.ghostMat.uniforms.uOpacity.value = Math.min(1, kmax) * .22 * (set.focusC ? 0 : 1);
     set.root.children.forEach(o => { if (!o.userData.gear) return; if (o.userData.follow && set.pieces[o.userData.follow]) { const pv = set.pieces[o.userData.follow]; o.position.copy(pv.position).sub(pv.userData.home); } else o.visible = kmax < .05; });
     // scan ring sweeps up the suit whenever it separates or assembles
@@ -1399,6 +1401,39 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Backspace' && current === 'suit' && nav.level > 0) navBack();
 });
 
+/* ---------- the user's printed parts, placed on the suit where they belong ---------- */
+const PRINTED_G = {};
+function tryInserts() {
+  const set = views.suit?.set; if (!set) return; set.inserts = set.inserts || {};
+  const P = id => set.pieces[id].userData;
+  [['faceshell', 'faceshell'], ['lenses', 'lenses'], ['webshooters', 'webshooter']].forEach(([part, vname]) => {
+    if (set.inserts[part] || !PRINTED_G[vname]) return;
+    const g = new THREE.Group(), inner = new THREE.Group(), mats = [];
+    PRINTED_G[vname].forEach(geo => { const m = holoMat(INK, 0); mats.push(m); const mesh = new THREE.Mesh(geo, m); mesh.renderOrder = 2; inner.add(mesh); });
+    inner.rotation.x = -Math.PI / 2; g.add(inner); inner.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(inner), sz = bb.getSize(new THREE.Vector3()), cc = bb.getCenter(new THREE.Vector3());
+    inner.position.copy(cc).negate();
+    const target = part === 'faceshell' ? P('mask').size.y * .95 : part === 'lenses' ? P('lens_gear').size.x * .55 : 15;
+    const sc = target / (part === 'faceshell' ? sz.y : Math.max(sz.x, sz.y, sz.z)); g.scale.setScalar(sc);
+    g.visible = false; set.root.add(g);
+    setFreq(g, sz.y * sc);
+    set.inserts[part] = { g, mats, fade: 0, fadeT: 0, r: sz.length() * sc * .5 };
+  });
+}
+function insertAnchor(part) {
+  const set = views.suit.set, P = id => set.pieces[id].userData;
+  if (part === 'faceshell') return P('mask').home.clone().add(new THREE.Vector3(0, -P('mask').size.y * .04, P('mask').size.z * .12));
+  if (part === 'lenses') return P('lens_gear').home.clone();
+  return /_r$/.test(nav.focus || '') ? new THREE.Vector3(-67, 166, 18) : new THREE.Vector3(67, 166, 18);
+}
+function stepInserts(set, dt) {
+  Object.values(set.inserts || {}).forEach(ins => {
+    ins.fade += (ins.fadeT - ins.fade) * Math.min(1, dt * (ins.fadeT > ins.fade ? 1.6 : 3));
+    ins.g.visible = ins.fade > .015;
+    ins.mats.forEach(m => { m.uniforms.uOpacity.value = .62 * ins.fade; });
+  });
+}
+
 /* ---------- zoom navigation on the full suit ---------- */
 let camAnim = null, viewIntro = null;
 function camTo(target, dist, dur = 1.25) {
@@ -1424,9 +1459,10 @@ function frameDist(box, pad = 1.5) {
   const vf = THREE.MathUtils.degToRad(camera.fov / 2), hf = Math.atan(Math.tan(vf) * camera.aspect);
   return r / Math.sin(Math.min(vf, hf));
 }
-function setFade(set, keep, centerId) {
+function setFade(set, keep, center) {
   set.fadeT = {}; Object.keys(set.pieces).forEach(id => { set.fadeT[id] = !keep || keep.includes(id) ? 1 : 0; });
-  set.focusC = keep ? set.pieces[centerId].userData.home.clone() : null;
+  set.focusC = keep ? (center?.isVector3 ? center.clone() : set.pieces[center].userData.home.clone()) : null;
+  if (!keep || keep.length) Object.values(set.inserts || {}).forEach(ins => { ins.fadeT = 0; });
 }
 function anchorPos(anchor, focusId) {
   const s = views.suit.set, P = id => s.pieces[id].userData;
@@ -1449,7 +1485,7 @@ function focusOn(id) {
   if (list.length === 1) { nav = { level: 1, focus: id, item: null }; chooseItem(list[0], true); return; }
   nav = { level: 1, focus: id, item: null }; selPanel = id;
   const keep = KEEP[id] || [id];
-  setFade(set, keep, id); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45));
+  setFade(set, keep, id); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45), 1.8);
   controls.autoRotateSpeed = .45; SFX.zoom(true);
   showChoices(); updateGlow(); render();
 }
@@ -1459,8 +1495,14 @@ function chooseItem(ch, direct) {
   buildHots([]);
   if (type === 'panel') {
     selPanel = id; setFade(set, [id], id);
-    camTo(set.pieces[id].userData.home.clone(), frameDist(piecesBox(set, [id]), id === 'rest' ? 1.05 : 1.35));
+    camTo(set.pieces[id].userData.home.clone(), frameDist(piecesBox(set, [id]), id === 'rest' ? 1.05 : 1.35), 1.9);
     SFX.zoom(true, true);
+  } else if (set.inserts?.[id]) {
+    selPanel = null;
+    const ins = set.inserts[id], at = insertAnchor(id);
+    setFade(set, [], at); ins.g.position.copy(at); ins.fadeT = 1;
+    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2)), 1.6), 2.2);
+    controls.autoRotateSpeed = .35; SFX.zoom(true, true);
   } else {
     // the focused region dissolves and the printed part materialises in its place
     selPanel = null; SFX.materialize();
@@ -1476,22 +1518,23 @@ function navBack() {
   if (current !== 'suit' || nav.level === 0) return;
   const set = views.suit?.set; if (!set) return;
   if (nav.level === 2 && (CHOICES[nav.focus] || []).length > 1) {
-    const wasPart = nav.item.type === 'part';
+    const wasPart = nav.item.type === 'part' && currentView !== views.suit;
+    if (set.inserts?.[nav.item.id]) set.inserts[nav.item.id].fadeT = 0;
     nav = { level: 1, focus: nav.focus, item: null };
     if (wasPart) { showView('suit'); const keep = KEEP[nav.focus] || [nav.focus], b = piecesBox(set, keep), c = b.getCenter(new THREE.Vector3()), dir = new THREE.Vector3(.48, .12, .87).normalize(); controls.target.copy(c); camera.position.copy(c).addScaledVector(dir, frameDist(b, 1.9)); resize.moved = true; }
     const keep = KEEP[nav.focus] || [nav.focus]; selPanel = nav.focus;
-    setFade(set, keep, nav.focus); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45), wasPart ? .9 : 1.1);
+    setFade(set, keep, nav.focus); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45), 1.8);
     SFX.zoom(false); showChoices(); updateGlow(); render(); return;
   }
   navHome();
 }
 function navHome() {
   const set = views.suit?.set; if (!set) return;
-  const wasPart = nav.level === 2 && nav.item.type === 'part';
+  const wasPart = nav.level === 2 && nav.item.type === 'part' && currentView !== views.suit;
   nav = { level: 0, focus: null, item: null };
   if (current !== 'suit' || wasPart) { current = 'suit'; showView('suit'); }
   setFade(set, null); buildHots([]);
-  camTo(views.suit.c, fitDistance(views.suit), 1.2); controls.autoRotateSpeed = .8;
+  camTo(views.suit.c, fitDistance(views.suit), 2.0); controls.autoRotateSpeed = .8;
   SFX.zoom(false); updateGlow(); render();
 }
 function handleModelClick(id) {
@@ -1514,6 +1557,7 @@ loadModel('suit2.glb', gltf => {
     PANEL_INFO[id] = { red: fr / (fr + fb || 1), blue: fb / (fr + fb || 1) };
   });
   const sSuit = makeSet(G, ALLP, { spread: 1.12, ghost: true });
+  setTimeout(tryInserts, 0);
   finishView('suit', sSuit.root, { set: sSuit, spec: [['PANELS', '9 spandex + 2 logos + lenses + shooters'], ['CLICK', 'select'], ['CLICK AGAIN', 'zoom'], ['E', 'separate']], pad: 1.0, elev: .12 });
   buildMolds(G);
   applyAllStates(); render();
@@ -1555,6 +1599,7 @@ function loadPrinted(file, name, partSpec, rotX) {
     const dims = [s.x, s.y, s.z].map(v => v.toFixed(1)).join(' × ') + ' mm';
     const spec = [['BBOX', dims], ['MESH', Math.round(tris / 1000) + 'k tris (slimmed)'], ...partSpec];
     finishView(name, root, { spec, pad: .95 });
+    PRINTED_G[name] = Object.values(geoms); tryInserts();
     if (current && byId[current].view === name) renderDetail();
   }, () => { if (pendingView === name) $('#loading').textContent = 'COULD NOT LOAD ' + name.toUpperCase(); });
 }
