@@ -61,7 +61,11 @@ header.title {
 .meta { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 22px; text-align: right; font-variant-numeric: tabular-nums; }
 .meta .k { font-size: 10px; letter-spacing: .2em; color: var(--dim); text-transform: uppercase; }
 .meta .v { font-family: var(--display); font-size: 22px; font-weight: 600; color: #fff; }
-.sync { position: absolute; top: 10px; right: 14px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; color: var(--dim); }
+.ctrls { position: absolute; top: 8px; right: 12px; display: flex; gap: 8px; align-items: center; }
+.ctl { background: rgba(6,21,39,.85); border: 1px solid var(--dim); color: var(--line); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
+.ctl:hover { border-color: var(--line); }
+.ctl[aria-pressed="false"] { color: var(--dim); }
+.sync { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; color: var(--dim); }
 .sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); display: inline-block; }
 .sync.ok i { background: var(--good); box-shadow: 0 0 8px var(--good); }
 .sync.warn i { background: var(--amber); }
@@ -226,9 +230,9 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .step, .mini { transition: border-color .2s, background .2s, color .2s; }
 .part { transition: border-color .2s, transform .2s; }
 .part:hover { transform: translateY(-2px); }
-.fsb { position: absolute; top: 6px; right: 120px; background: rgba(6,21,39,.85); border: 1px solid var(--line); color: var(--line); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
+.fsb { background: rgba(6,21,39,.85); border: 1px solid var(--line); color: var(--line); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
 .fsb:hover { background: rgba(99,211,255,.14); }
-@media (max-width: 560px) { .fsb { position: static; justify-self: start; } }
+
 .qbar { display: none; }
 /* ---------- phone layout ---------- */
 @media (max-width: 700px) {
@@ -282,7 +286,7 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
   .vlabel.br { display: none; }
   header.title { grid-template-columns: 1fr; }
   .meta { text-align: left; grid-template-columns: repeat(3, 1fr); }
-  .sync { position: static; order: -1; }
+  .ctrls { position: static; order: -1; flex-wrap: wrap; }
   .tl-seg .d { display: none; }
   .tl-seg .n { font-size: 11px; }
   .parts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -309,8 +313,12 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
       <div class="k">Complete</div><div class="k">Tasks</div><div class="k">To target</div>
       <div class="v" id="m-pct">0%</div><div class="v" id="m-tasks">0/0</div><div class="v" id="m-days">–</div>
     </div>
-    <div class="sync" id="sync"><i></i><span>Connecting</span></div>
-    <button class="fsb" id="fsb" type="button" hidden>Full screen</button>
+    <div class="ctrls">
+      <button class="ctl" id="snd" type="button" aria-pressed="true">Sound on</button>
+      <button class="ctl" id="mus" type="button" aria-pressed="false" hidden>Music off</button>
+      <button class="fsb" id="fsb" type="button" hidden>Full screen</button>
+      <div class="sync" id="sync"><i></i><span>Connecting</span></div>
+    </div>
   </header>
   <div class="banner" id="banner" role="status"></div>
 
@@ -528,7 +536,7 @@ async function toggleTask(partId, taskId, on) {
   if (!db) return;
   const cur = { ...(state.done[partId] || {}) };
   if (on) cur[taskId] = new Date().toISOString(); else delete cur[taskId];
-  state.done[partId] = cur; render();
+  state.done[partId] = cur; render(); SFX.step(on);
   const label = (byId[partId].tasks.find(t => t[0] === taskId) || [, taskId])[1];
   try {
     await serial('parts/' + partId, () => db.doc('parts/' + partId).set({ done: cur, updatedAt: new Date().toISOString() }));
@@ -547,7 +555,7 @@ async function setStep(id, field, on) {
   cur[field] = on;
   if (field === last && on) cur[first] = true;        // sewn implies painted, glued implies cast
   if (field === first && !on) cur[last] = false;
-  state.panels[id] = cur; render(); applyAllStates();
+  state.panels[id] = cur; render(); applyAllStates(); SFX.step(on, field === last);
   const label = stepsOf(p).find(x => x[0] === field)[1];
   try {
     await serial('panels/' + id, () => db.doc('panels/' + id).set({ ...cur, updatedAt: new Date().toISOString() }));
@@ -556,16 +564,17 @@ async function setStep(id, field, on) {
 }
 async function addLog(partId, text) {
   if (!db || !text.trim()) return;
+  SFX.log();
   try { await db.collection('logs').add({ part: partId, kind: 'note', text: text.trim().slice(0, 2000), at: new Date().toISOString() }); }
   catch (e) { writeFail(e); }
 }
 async function addJob(job) {
-  if (!db) return;
+  if (!db) return; SFX.job('queued');
   try { await db.collection('jobs').add({ ...job, status: 'queued', createdAt: new Date().toISOString() }); }
   catch (e) { writeFail(e); }
 }
 async function setJob(id, status) {
-  if (!db) return;
+  if (!db) return; SFX.job(status);
   try {
     await serial('jobs/' + id, () => db.doc('jobs/' + id).update({ status, updatedAt: new Date().toISOString() }));
     const j = state.jobs.find(x => x.id === id);
@@ -803,17 +812,19 @@ let hoverPanel = null, selPanel = null;
 function setHover(id, from) {
   if (hoverPanel === id) return;
   hoverPanel = id; renderInspector(); renderQbar(); updateGlow();
+  if (id) SFX.hover(id);
   document.querySelectorAll('#board li').forEach(li => li.classList.toggle('hl', li.dataset.panel === id));
 }
 function selectPanel(id) {
   const p = panelById[id]; if (!p) return;
-  selPanel = id;
+  selPanel = id; SFX.select(id);
   if (!panelsFor(current).some(x => x.id === id)) { select(current === 'suit' ? 'body' : p.part); return; }
   render(); updateGlow();
 }
 
-function select(id) {
+function select(id, quiet) {
   if (!byId[id]) id = 'suit';
+  if (!quiet && id !== current) SFX.sheet(id);
   current = id;
   if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
   const p = byId[id];
@@ -1093,7 +1104,7 @@ function toggleExplode(set) {
   const order = set.exploded ? set.order : [...set.order].reverse();
   order.forEach((id, i) => { const u = set.pieces[id].userData; u.from = u.kCur; u.to = set.exploded ? 1 : 0; u.start = t + i * .07; });
   if (set.scan) set.scan.t0 = t;
-  syncSepButton(set);
+  syncSepButton(set); SFX.separate(set.exploded);
 }
 const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 const backOut = x => { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -1319,13 +1330,139 @@ renderer.setAnimationLoop(() => {
   });
   document.addEventListener('fullscreenchange', label);
 })();
+/* ================= sound: every effect is synthesized here (Web Audio), no audio files ================= */
+const SFX = (() => {
+  let ctx = null, master = null, sfxBus = null, musicBus = null, verb = null, noiseBuf = null;
+  const store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const keep = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  let soundOn = store('mk1-sound') !== 'off', musicOn = store('mk1-music') === 'on';
+  let musicEl = null, musicNode = null, musicAvailable = false;
+  function init() {
+    if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC();
+    master = ctx.createGain(); master.gain.value = .9; master.connect(ctx.destination);
+    sfxBus = ctx.createGain(); sfxBus.gain.value = soundOn ? .55 : 0;
+    musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master);
+    // a short synthetic room so blips sound like they come from inside the suit's computer
+    verb = ctx.createConvolver(); const len = ctx.sampleRate * 1.2, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+    verb.buffer = ir; const wet = ctx.createGain(); wet.gain.value = .22; sfxBus.connect(master); sfxBus.connect(verb); verb.connect(wet); wet.connect(master);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    if (musicOn && musicAvailable) startMusic();
+  }
+  ['pointerdown', 'keydown', 'touchstart'].forEach(ev => window.addEventListener(ev, init, { passive: true }));
+  const ok = () => ctx && soundOn && ctx.state === 'running';
+  function tone({ f = 880, f2 = null, type = 'sine', t = 0, dur = .08, vol = .2, attack = .004, q = null, detune = 0 }) {
+    const now = ctx.currentTime + t, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, now); o.detune.value = detune;
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, now + dur);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + attack); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    let out = g;
+    if (q) { const fl = ctx.createBiquadFilter(); fl.type = 'bandpass'; fl.frequency.value = f; fl.Q.value = q; g.connect(fl); out = fl; }
+    o.connect(g); out.connect(sfxBus); o.start(now); o.stop(now + dur + .05);
+  }
+  function noise({ t = 0, dur = .3, vol = .2, from = 400, to = 4000, q = 2, type = 'bandpass' }) {
+    const now = ctx.currentTime + t, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; s.loop = true; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(from, now); f.frequency.exponentialRampToValueAtTime(to, now + dur);
+    g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + dur * .25); g.gain.exponentialRampToValueAtTime(.0001, now + dur);
+    s.connect(f); f.connect(g); g.connect(sfxBus); s.start(now); s.stop(now + dur + .05);
+  }
+  // every part and panel gets its own voice: a base pitch, a waveform and a little motif
+  const VOICE = {
+    suit: [392, 'triangle'], body: [330, 'triangle'], hood: [523, 'sine'], faceshell: [587, 'square'], lenses: [784, 'sine'],
+    logos: [440, 'sawtooth'], webshooters: [659, 'square'], printer: [220, 'sawtooth'],
+  };
+  const hash = s => { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); };
+  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19];   // pentatonic steps keep every panel tone pleasant together
+  const panelPitch = id => 520 * Math.pow(2, SCALE[hash(id) % SCALE.length] / 12);
+  let lastHover = 0;
+  return {
+    get soundOn() { return soundOn; }, get musicOn() { return musicOn; }, get musicAvailable() { return musicAvailable; },
+    hover(id) {                       // soft high blip, its pitch set by the panel
+      if (!ok() || !id) return; const n = performance.now(); if (n - lastHover < 45) return; lastHover = n;
+      const f = panelPitch(id) * 2;
+      tone({ f, f2: f * 1.04, type: 'sine', dur: .05, vol: .06 }); tone({ f: f * 2, type: 'sine', t: .012, dur: .03, vol: .025 });
+    },
+    uiHover() { if (!ok()) return; const n = performance.now(); if (n - lastHover < 45) return; lastHover = n; tone({ f: 2400, type: 'sine', dur: .025, vol: .03 }); },
+    select(id) {                      // lock-on: a tick, then two rising notes in the panel's key
+      if (!ok()) return; const f = panelPitch(id), logo = panelById[id]?.logo;
+      noise({ dur: .05, vol: .12, from: 3000, to: 6000, q: 6 });
+      tone({ f, type: logo ? 'sawtooth' : 'triangle', t: .02, dur: .09, vol: .12, q: logo ? 4 : null });
+      tone({ f: f * 1.5, type: 'triangle', t: .08, dur: .16, vol: .1 });
+      tone({ f: f * 3, type: 'sine', t: .1, dur: .22, vol: .03 });
+    },
+    sheet(partId) {                   // opening a part's sheet: a quick data sweep in that part's voice
+      if (!ok()) return; const [f, type] = VOICE[partId] || [440, 'sine'];
+      noise({ dur: .28, vol: .07, from: 800, to: 7000, q: 3 });
+      [0, 4, 7, 12].forEach((s, i) => tone({ f: f * Math.pow(2, s / 12), type, t: i * .045, dur: .1, vol: type === 'square' || type === 'sawtooth' ? .035 : .08, q: type === 'sawtooth' ? 3 : null }));
+    },
+    step(on, final) {                 // marking a step: confirm up, undo down
+      if (!ok()) return;
+      if (on) { [0, 7, 12, final ? 19 : null].forEach((s, i) => s != null && tone({ f: 660 * Math.pow(2, s / 12), type: 'triangle', t: i * .06, dur: .14, vol: .1 })); if (final) noise({ t: .2, dur: .4, vol: .05, from: 2000, to: 9000, q: 1 }); }
+      else { tone({ f: 660, f2: 440, type: 'triangle', dur: .16, vol: .09 }); tone({ f: 330, type: 'sine', t: .08, dur: .12, vol: .06 }); }
+    },
+    separate(apart) {                 // suit splitting or coming back together
+      if (!ok()) return;
+      if (apart) {
+        tone({ f: 70, f2: 38, type: 'sine', dur: .6, vol: .35 });
+        noise({ dur: .9, vol: .16, from: 300, to: 5000, q: 1.2 });
+        for (let i = 0; i < 9; i++) tone({ f: 1200 + i * 140, type: 'square', t: .06 + i * .07, dur: .03, vol: .018 });
+      } else {
+        noise({ dur: .7, vol: .14, from: 5000, to: 300, q: 1.2 });
+        for (let i = 0; i < 6; i++) tone({ f: 1800 - i * 160, type: 'square', t: i * .08, dur: .03, vol: .02 });
+        tone({ f: 120, f2: 60, type: 'sine', t: .62, dur: .25, vol: .3 }); noise({ t: .62, dur: .08, vol: .2, from: 2500, to: 1200, q: 4 });
+      }
+    },
+    log() { if (!ok()) return; for (let i = 0; i < 5; i++) tone({ f: 1800 + Math.random() * 900, type: 'square', t: i * .035, dur: .02, vol: .02 }); tone({ f: 990, type: 'triangle', t: .2, dur: .12, vol: .07 }); },
+    job(status) {
+      if (!ok()) return;
+      if (status === 'printing') { tone({ f: 180, f2: 260, type: 'sawtooth', dur: .35, vol: .05, q: 6 }); tone({ f: 260, f2: 200, type: 'sawtooth', t: .35, dur: .3, vol: .04, q: 6 }); }
+      else if (status === 'done') this.step(true, true);
+      else if (status === 'failed') { tone({ f: 220, type: 'square', dur: .15, vol: .06 }); tone({ f: 165, type: 'square', t: .17, dur: .25, vol: .06 }); }
+      else tone({ f: 880, type: 'sine', dur: .08, vol: .06 });
+    },
+    boot() {                          // once, the first time sound unlocks
+      if (!ok()) return; tone({ f: 55, f2: 110, type: 'sine', dur: 1.2, vol: .25, attack: .3 });
+      [0, 7, 12, 16, 19].forEach((s, i) => tone({ f: 330 * Math.pow(2, s / 12), type: 'triangle', t: .35 + i * .09, dur: .3, vol: .06 }));
+      noise({ t: .3, dur: 1, vol: .05, from: 500, to: 8000, q: 1 });
+    },
+    setSound(v) { soundOn = v; keep('mk1-sound', v ? 'on' : 'off'); init(); if (sfxBus) sfxBus.gain.setTargetAtTime(v ? .55 : 0, ctx.currentTime, .05); },
+    async probeMusic(src) {           // background track: only if audio/music.mp3 exists
+      try { const r = await fetch(src, { method: 'HEAD' }); musicAvailable = r.ok; } catch (e) { musicAvailable = false; }
+      if (musicAvailable) { musicEl = new Audio(src); musicEl.loop = true; musicEl.preload = 'none'; musicEl.crossOrigin = 'anonymous'; }
+      return musicAvailable;
+    },
+    setMusic(v) { musicOn = v; keep('mk1-music', v ? 'on' : 'off'); init(); if (v) startMusic(); else stopMusic(); },
+  };
+  function startMusic() {
+    if (!ctx || !musicEl) return;
+    if (!musicNode) { musicNode = ctx.createMediaElementSource(musicEl); musicNode.connect(musicBus); }
+    musicEl.play().catch(() => {}); musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setTargetAtTime(.35, ctx.currentTime, .8);
+  }
+  function stopMusic() { if (!ctx || !musicEl) return; musicBus.gain.setTargetAtTime(0, ctx.currentTime, .3); setTimeout(() => { if (!musicOn) musicEl.pause(); }, 1200); }
+})();
+// sound controls in the header
+(function () {
+  const sb = $('#snd'), mb = $('#mus');
+  const paint = () => { sb.textContent = 'Sound ' + (SFX.soundOn ? 'on' : 'off'); sb.setAttribute('aria-pressed', SFX.soundOn ? 'true' : 'false'); mb.textContent = 'Music ' + (SFX.musicOn ? 'on' : 'off'); mb.setAttribute('aria-pressed', SFX.musicOn ? 'true' : 'false'); };
+  sb.addEventListener('click', () => { SFX.setSound(!SFX.soundOn); paint(); if (SFX.soundOn) SFX.step(true); });
+  mb.addEventListener('click', () => { SFX.setMusic(!SFX.musicOn); paint(); });
+  SFX.probeMusic('audio/music.mp3').then(has => { mb.hidden = !has; });
+  paint();
+  let booted = false; window.addEventListener('pointerdown', () => { if (!booted) { booted = true; setTimeout(() => SFX.boot(), 60); } }, { once: true });
+  // light ticks on buttons and part cards
+  document.addEventListener('pointerover', e => { if (e.pointerType === 'mouse' && e.target.closest?.('.part, .btn, .mini, .step, .sep, .hot, .board li, .fsb, .ctl')) SFX.uiHover(); });
+})();
+
 /* ---- offline: cache the app so it opens without internet ---- */
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 /* ---- boot ---- */
 renderTimeline();
 setInterval(renderTimeline, 60 * 60 * 1000);
 window.addEventListener('hashchange', () => { const id = location.hash.slice(1); if (id !== current) select(id); });
-select(location.hash.slice(1) || 'suit');
+select(location.hash.slice(1) || 'suit', true);
 startSync();
 </script>
 </body>
