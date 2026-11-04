@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v17';
+const VERSION = 'mk1-v18';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
@@ -24,8 +24,6 @@ const FILES = [
   "vendor/jsm/utils/BufferGeometryUtils.js",
   "vendor/three.module.min.js",
   "ev-voice.js",
-  "voice/af_heart.json",
-  "voice/af_heart.bin",
   "vendor/kokoro/kokoro.web.js",
   "vendor/kokoro/ort-wasm-simd-threaded.jsep.mjs",
 ];
@@ -41,7 +39,7 @@ self.addEventListener('fetch', e => {
   }
   // E.V.'s voice engine (big wasm) and her voice files are cached the first time they are used, so she also works offline
   const u = new URL(e.request.url);
-  if (u.pathname.includes('/vendor/kokoro/') || (u.hostname === 'huggingface.co' && u.pathname.includes('/voices/'))) {
+  if (u.pathname.includes('/vendor/kokoro/') || u.pathname.includes('/voice/') || (u.hostname === 'huggingface.co' && u.pathname.includes('/voices/'))) {
     e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open('mk1-voice').then(c => c.put(e.request, copy)); } return r; })));
     return;
   }

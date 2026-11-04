@@ -2202,16 +2202,32 @@ const EV = (() => {
   const refreshPanel = () => { const e = document.getElementById('ev-status'); if (e) e.textContent = statusText(); };
   function statusText() {
     if (engine !== 'natural') return 'Basic device voice';
-    if (nvoice === LIBRARY_VOICE) return libState === 'ready' ? 'Natural voice ready · ' + Object.keys(lib.clips).length + ' lines recorded, works offline' : libState === 'failed' ? 'Could not load her recorded voice · using the device voice' : 'Loading her voice…';
+    if (nvoice === LIBRARY_VOICE) return libState === 'ready' ? 'Natural voice ready · ' + Object.keys(lib.clips).length + ' lines recorded, works offline'
+      : libState === 'failed' ? 'Could not load her voice (' + libErr + '). Tap Status report to try again.'
+      : libTotal ? 'Downloading her voice · ' + Math.round(libGot / libTotal * 100) + '% of ' + (libTotal / 1e6).toFixed(1) + ' MB. Until then she uses the device voice.' : 'Downloading her voice…';
     if (wstate === 'loading') return wmb ? 'Downloading the voice engine · ' + Math.round(wprog * 100) + '% of ' + wmb + ' MB (one time)' : 'Starting the voice engine…';
     if (wstate === 'failed') return 'Voice engine could not load (' + (werr || 'unknown') + ') · using the device voice';
     return wstate === 'ready' ? 'Voice engine ready · lines are made on this device, so expect a short wait' : 'This voice is made on your phone (downloads about 90 MB once)';
   }
+  let libGot = 0, libTotal = 0, libErr = '';
+  // download her recorded lines with visible progress; a download that stops moving for 30 s is retried on the next line
+  async function fetchBin(url) {
+    const ctl = new AbortController(); let last = performance.now();
+    const dog = setInterval(() => { if (performance.now() - last > 30000) ctl.abort(); }, 3000);
+    try {
+      const r = await fetch(url, { signal: ctl.signal }); if (!r.ok) throw new Error('HTTP ' + r.status);
+      libTotal = +r.headers.get('content-length') || 0;
+      if (!r.body?.getReader) return await r.arrayBuffer();
+      const rd = r.body.getReader(), chunks = []; libGot = 0;
+      for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); libGot += value.length; last = performance.now(); refreshPanel(); }
+      const out = new Uint8Array(libGot); let o = 0; chunks.forEach(c => { out.set(c, o); o += c.length; }); return out.buffer;
+    } finally { clearInterval(dog); }
+  }
   function loadLibrary() {
-    if (libState !== 'idle') return; libState = 'loading';
-    Promise.all([fetch('voice/' + LIBRARY_VOICE + '.json').then(r => { if (!r.ok) throw 0; return r.json(); }), fetch('voice/' + LIBRARY_VOICE + '.bin').then(r => { if (!r.ok) throw 0; return r.arrayBuffer(); })])
+    if (libState === 'loading' || libState === 'ready') return; libState = 'loading'; refreshPanel();
+    Promise.all([fetch('voice/' + LIBRARY_VOICE + '.json?v=2').then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }), fetchBin('voice/' + LIBRARY_VOICE + '.bin?v=2')])
       .then(([idx, bin]) => { lib = { clips: idx.clips, bin }; libState = 'ready'; refreshPanel(); })
-      .catch(() => { libState = 'failed'; refreshPanel(); });
+      .catch(e => { libState = 'failed'; libErr = e?.name === 'AbortError' ? 'download stalled' : String(e?.message || e); refreshPanel(); });
   }
   async function clip(text) {
     if (nvoice !== LIBRARY_VOICE || !lib) return null;
@@ -2281,6 +2297,7 @@ const EV = (() => {
     if (!on || !parts) return;
     if (typeof parts === 'string') parts = splitParts(parts);
     parts = parts.filter(Boolean); if (!parts.length) return;
+    if (engine === 'natural' && nvoice === LIBRARY_VOICE && libState === 'failed') loadLibrary();
     const text = parts.join(' ');
     caption(text); hideSoon(6000 + text.length * 90);
     if (!SFX.soundOn) { hideSoon(1800 + text.length * 45); return; }
@@ -2575,7 +2592,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v17'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v18'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
