@@ -2172,7 +2172,7 @@ const SFX = (() => {
 const EV = (() => {
   const syn = window.speechSynthesis, store = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const keep = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
-  let on = store('mk1-ev') !== 'off', voice = null, unlocked = false, hideT = 0, pending = null;
+  let on = store('mk1-ev') !== 'off', voice = null, syncUnlocked = false, hideT = 0, pending = null;
   // female English voices, best first; whatever the device has
   const PREF = ['Ava (Premium)', 'Zoe (Premium)', 'Ava (Enhanced)', 'Zoe (Enhanced)', 'Samantha (Enhanced)', 'Serena (Enhanced)', 'Allison (Enhanced)', 'Susan (Enhanced)',
     'Microsoft Libby Online', 'Microsoft Sonia Online', 'Microsoft Aria Online', 'Microsoft Jenny Online', 'Google UK English Female', 'Google US English',
@@ -2190,25 +2190,29 @@ const EV = (() => {
   const NATURAL = [['af_heart', 'Heart · American'], ['af_bella', 'Bella · American'], ['af_nicole', 'Nicole · American, soft'], ['bf_emma', 'Emma · British']];
   const canNatural = typeof Worker !== 'undefined' && typeof WebAssembly !== 'undefined';
   let engine = canNatural && store('mk1-ev-engine') !== 'system' ? 'natural' : 'system';
-  let nvoice = store('mk1-ev-nvoice') || 'af_heart', worker = null, nstate = 'idle', nprog = 0, lineId = 0, playing = [], nextAt = 0, waiting = null;
+  let nvoice = store('mk1-ev-nvoice') || 'af_heart', worker = null, nstate = 'idle', nprog = 0, nmb = 0, nerr = '', lastMsg = 0, lineId = 0, playing = [], nextAt = 0, waiting = null;
   const refreshPanel = () => { if (current === 'suit' && nav.level === 0 && document.getElementById('ev-status')) document.getElementById('ev-status').textContent = statusText(); };
   function statusText() {
     if (engine !== 'natural') return 'Basic device voice';
-    return { idle: 'Natural voice', loading: 'Downloading her voice · ' + Math.round(nprog * 100) + '% (one time, about 90 MB)', ready: 'Natural voice ready · works offline', failed: 'Natural voice could not load · using the device voice' }[nstate];
+    return { idle: 'Natural voice', loading: nmb ? 'Downloading her voice · ' + Math.round(nprog * 100) + '% of ' + nmb + ' MB (one time). Until then she uses the device voice.' : 'Starting her voice engine…',
+      ready: 'Natural voice ready · works offline', failed: 'Natural voice could not load (' + (nerr || 'unknown error') + '). Using the device voice.' }[nstate];
   }
   function startNatural() {
-    if (!canNatural || worker || engine !== 'natural') return;
+    if (!canNatural || worker || engine !== 'natural' || nstate === 'failed') return;
     try { worker = new Worker('ev-voice.js', { type: 'module' }); } catch (e) { nstate = 'failed'; return; }
-    nstate = 'loading'; refreshPanel();
+    nstate = 'loading'; lastMsg = performance.now(); refreshPanel();
+    const fail = why => { if (nstate === 'ready') return; nstate = 'failed'; nerr = why; refreshPanel(); try { worker.terminate(); } catch (e) {} worker = null; waiting = null; };
+    // a download that stops moving (lost connection, or the phone ran out of memory and killed the worker) falls back
+    const dog = setInterval(() => { if (nstate !== 'loading') return clearInterval(dog); if (performance.now() - lastMsg > 60000) { clearInterval(dog); fail(nmb ? 'download stalled at ' + Math.round(nprog * 100) + '%' : 'engine did not start'); } }, 5000);
     worker.onmessage = e => {
-      const m = e.data;
-      if (m.type === 'progress') { nprog = m.total ? m.loaded / m.total : 0; refreshPanel(); }
-      else if (m.type === 'ready') { nstate = 'ready'; refreshPanel(); if (waiting && performance.now() - waiting.at < 20000) { const w = waiting; waiting = null; speakNatural(w.text, w.opts); } waiting = null; }
-      else if (m.type === 'error' && !m.id) { nstate = 'failed'; refreshPanel(); if (waiting) { const w = waiting; waiting = null; speak(w.text, w.opts); } }
+      const m = e.data; lastMsg = performance.now();
+      if (m.type === 'progress') { nprog = m.total ? m.loaded / m.total : 0; nmb = Math.round(m.total / 1e6); refreshPanel(); }
+      else if (m.type === 'ready') { nstate = 'ready'; refreshPanel(); }
+      else if (m.type === 'error' && !m.id) fail(m.message);
       else if (m.type === 'error') { if (m.id === lineId) endNatural(); }
       else if (m.type === 'audio') playChunk(m);
     };
-    worker.onerror = () => { nstate = 'failed'; refreshPanel(); };
+    worker.onerror = e => fail(e?.message || 'worker crashed');
     worker.postMessage({ type: 'load' });
   }
   function stopNatural() { lineId++; worker?.postMessage({ type: 'stop' }); playing.forEach(src => { try { src.onended = null; src.stop(); } catch (e) {} }); playing = []; nextAt = 0; }
@@ -2229,39 +2233,39 @@ const EV = (() => {
   }
   function endNatural() { playing = []; box()?.classList.remove('talk'); SFX.duck(false); hideSoon(1400); }
   startNatural();
-  // iOS only lets speech start from a tap; the first tap anywhere unlocks it, then anything queued plays
-  // (iPhone only counts the end of a tap, not the touch-down, so listen for click / touchend)
+  // Phones only allow sound to start from a tap: the device voice needs speech started inside a tap, the natural voice
+  // needs the audio engine awake. The first tap unlocks both; a line that could not play waits for the next tap.
+  // (iPhone only counts the end of a tap, so listen for click / touchend.)
+  const audioUp = () => SFX.ctx?.state === 'running';
   const unlock = () => {
-    if (engine === 'natural' && nstate !== 'failed') {
-      SFX.init();
-      const go = () => { if (SFX.ctx?.state !== 'running' || (unlocked && !pending)) return; unlocked = true; if (pending) { const p = pending; pending = null; say(p.text, p.opts); } };
-      go(); setTimeout(go, 200); return;
+    SFX.init();
+    if (syn && !syncUnlocked) {
+      syncUnlocked = true;
+      // iOS keeps the device voice blocked unless real speech starts inside the tap
+      if (!pending && !unlock.said && on && SFX.soundOn && !(engine === 'natural' && nstate === 'ready')) { unlock.said = true; speak('E.V. online.', {}, true); }
+      else if (!pending) { const u = new SpeechSynthesisUtterance('.'); u.volume = 0; syn.speak(u); }
     }
-    if (unlocked || !syn) return; unlocked = true;
-    if (pending) { const p = pending; pending = null; speak(p.text, p.opts); return; }
-    // speech has to really start inside the tap, or iOS keeps blocking the later briefing
-    if (on && SFX.soundOn) speak('E.V. online.', {}, true); else { const u = new SpeechSynthesisUtterance('.'); u.volume = 0; syn.speak(u); }
+    if (pending) { const p = pending; pending = null; say(p.text, p.opts, true); }
   };
-  ['click', 'touchend', 'keydown'].forEach(ev => window.addEventListener(ev, () => { if (!unlocked || pending) unlock(); }, { passive: true, capture: true }));
+  ['click', 'touchend', 'keydown'].forEach(ev => window.addEventListener(ev, () => { if (!syncUnlocked || pending || !audioUp()) unlock(); }, { passive: true, capture: true }));
   const box = () => $('#ev'), txt = () => $('#evt');
   function caption(text, talking) {
     const b = box(); if (!b) return; clearTimeout(hideT);
     txt().textContent = text; b.classList.add('on'); b.classList.toggle('talk', !!talking);
   }
   function hideSoon(ms) { clearTimeout(hideT); hideT = setTimeout(() => box()?.classList.remove('on', 'talk'), ms); }
-  function say(text, opts = {}) {
+  function say(text, opts = {}, fromTap) {
     if (!on || !text) return;
-    const nat = engine === 'natural' && nstate !== 'failed';
-    const voiced = (nat || syn) && SFX.soundOn;
-    caption(text, false);
-    if (!voiced) { hideSoon(1800 + text.length * 45); return; }
-    if (nat) {
-      if (SFX.ctx?.state !== 'running') { pending = { text, opts }; unlocked = false; hideSoon(1800 + text.length * 45); return; }   // audio wakes on the next tap
-      hideSoon(6000 + text.length * 90);
-      if (nstate === 'ready') speakNatural(text, opts); else { waiting = { text, opts, at: performance.now() }; startNatural(); }
-      return;
+    caption(text, false); hideSoon(6000 + text.length * 90);
+    if (!SFX.soundOn) { hideSoon(1800 + text.length * 45); return; }
+    if (engine === 'natural' && nstate === 'ready') {
+      if (audioUp()) { speakNatural(text, opts); return; }
+      if (fromTap) { setTimeout(() => { if (audioUp()) speakNatural(text, opts); }, 300); return; }
+      pending = { text, opts }; return;
     }
-    if (!unlocked) { pending = { text, opts }; hideSoon(1800 + text.length * 45); return; }   // browsers only start speech after a tap
+    if (engine === 'natural' && nstate !== 'failed') startNatural();   // still downloading: the device voice fills in meanwhile
+    if (!syn) return;
+    if (!syncUnlocked && !fromTap) { pending = { text, opts }; return; }
     speak(text, opts);
   }
   function speak(text, opts = {}, quiet) {
@@ -2272,7 +2276,7 @@ const EV = (() => {
     let started = false;
     u.onstart = () => { started = true; if (!quiet) caption(text, true); SFX.duck(true); };
     // if the device silently refused (no tap yet since the app woke up), hold the line for the next tap
-    setTimeout(() => { if (!started && !syn.speaking) { syn.cancel(); unlocked = false; pending = { text, opts }; } }, 1600);
+    setTimeout(() => { if (!started && !syn.speaking) { syn.cancel(); syncUnlocked = false; if (!quiet) pending = { text, opts }; } }, 1600);
     const t0 = performance.now(), read = 1800 + text.length * 45;
     const end = () => { if (quiet) { SFX.duck(false); return; } box()?.classList.remove('talk'); SFX.duck(false); hideSoon(Math.max(1400, read - (performance.now() - t0))); };   // if speech fails, the caption stays long enough to read
     u.onend = end; u.onerror = end;
@@ -2337,7 +2341,7 @@ const EV = (() => {
   return {
     get on() { return on; }, setOn, say, brief, step, task, job, voices, statusText,
     get engine() { return engine; }, canNatural, NATURAL, get nvoice() { return nvoice; },
-    setEngine(e) { engine = e; keep('mk1-ev-engine', e); stopNatural(); syn?.cancel(); if (e === 'natural') startNatural(); },
+    setEngine(e) { engine = e; keep('mk1-ev-engine', e); stopNatural(); syn?.cancel(); if (e === 'natural') { if (nstate === 'failed') nstate = 'idle'; startNatural(); } },
     voiceName: () => engine === 'natural' ? nvoice : voice?.name,
     setVoice(name) { if (engine === 'natural') { nvoice = name; keep('mk1-ev-nvoice', name); } else { keep('mk1-ev-voice', name); pick(); } },
   };
@@ -2495,7 +2499,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v15'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v16'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
