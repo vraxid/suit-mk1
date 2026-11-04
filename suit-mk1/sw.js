@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v14';
+const VERSION = 'mk1-v15';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
@@ -23,15 +23,24 @@ const FILES = [
   "vendor/jsm/loaders/GLTFLoader.js",
   "vendor/jsm/utils/BufferGeometryUtils.js",
   "vendor/three.module.min.js",
+  "ev-voice.js",
+  "vendor/kokoro/kokoro.web.js",
+  "vendor/kokoro/ort-wasm-simd-threaded.jsep.mjs",
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== 'mk1-voice').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (new URL(e.request.url).pathname.includes('/audio/')) return;   // let the browser stream the music itself
   // network first for the page itself so updates show up; cache first for everything else
   if (e.request.mode === 'navigate') {
     e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(r => { const copy = r.clone(); caches.open(VERSION).then(c => c.put('./', copy)); return r; }).catch(() => caches.match('./')));
+    return;
+  }
+  // E.V.'s voice engine (big wasm) and her voice files are cached the first time they are used, so she also works offline
+  const u = new URL(e.request.url);
+  if (u.pathname.includes('/vendor/kokoro/') || (u.hostname === 'huggingface.co' && u.pathname.includes('/voices/'))) {
+    e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request).then(r => { if (r.ok) { const copy = r.clone(); caches.open('mk1-voice').then(c => c.put(e.request, copy)); } return r; })));
     return;
   }
   e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
