@@ -1501,7 +1501,7 @@ function chooseItem(ch, direct) {
     selPanel = null;
     const ins = set.inserts[id], at = insertAnchor(id);
     setFade(set, [], at); ins.g.position.copy(at); ins.fadeT = 1;
-    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2)), 1.6), 2.2);
+    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), id === 'faceshell' ? .92 : 1.2), 2.2);   // part fills most of the view
     controls.autoRotateSpeed = .35; SFX.zoom(true, true);
   } else {
     // the focused region dissolves and the printed part materialises in its place
