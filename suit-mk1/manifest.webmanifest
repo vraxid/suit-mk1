@@ -1,0 +1,16 @@
+{
+  "name": "Spider-Man Suit Mk1",
+  "short_name": "Suit Mk1",
+  "description": "Build log and blueprint viewer for the Suit Mk1 cosplay build.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#061527",
+  "theme_color": "#061527",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

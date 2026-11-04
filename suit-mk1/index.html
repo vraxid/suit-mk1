@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#061527">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Suit Mk1">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Spider-Man Suit Mk1</title>
+<style>
+@font-face { font-family: "Chakra Petch"; font-weight: 600; font-display: swap; src: url(fonts/chakra-petch-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "Chakra Petch"; font-weight: 700; font-display: swap; src: url(fonts/chakra-petch-latin-700-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; font-display: swap; src: url(fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url(fonts/jetbrains-mono-latin-700-normal.woff2) format("woff2"); }
+/* Layout idea: a drafting table. Blueprint grid everywhere, the hologram viewer is the sheet, the parts and log are the margin notes. Single dark theme by choice. */
+:root {
+  --paper: #061527;      /* blueprint ground */
+  --sheet: #0a1f37;      /* raised panels */
+  --line: #63d3ff;       /* blueprint ink */
+  --dim: #3b6f93;        /* faint ink, grid, borders */
+  --text: #d8f1ff;       /* readable text */
+  --amber: #ffb547;      /* attention: today, active */
+  --good: #5cf2a6;       /* done */
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(rgba(99,211,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,211,255,.07) 1px, transparent 1px),
+    linear-gradient(rgba(99,211,255,.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99,211,255,.035) 1px, transparent 1px);
+  background-size: 96px 96px, 96px 96px, 16px 16px, 16px 16px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.wrap { max-width: 1440px; margin: 0 auto; padding: calc(18px + env(safe-area-inset-top)) calc(clamp(16px, 2.4vw, 32px) + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(clamp(16px, 2.4vw, 32px) + env(safe-area-inset-left)); display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+main, .detail, .viewer, .parts { min-width: 0; }
+
+/* ---------- title block ---------- */
+header.title {
+  display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: end;
+  border: 1px solid var(--dim); padding: 14px 18px; background: rgba(10,31,55,.75); position: relative;
+}
+.brand h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(30px, 4.6vw, 52px); letter-spacing: .08em; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(99,211,255,.45); text-wrap: balance; }
+.brand .mk { font-family: var(--mono); font-size: 12px; letter-spacing: .32em; color: var(--line); margin-top: 6px; }
+.meta { display: grid; grid-template-columns: repeat(3, auto); gap: 4px 22px; text-align: right; font-variant-numeric: tabular-nums; }
+.meta .k { font-size: 10px; letter-spacing: .2em; color: var(--dim); text-transform: uppercase; }
+.meta .v { font-family: var(--display); font-size: 22px; font-weight: 600; color: #fff; }
+.sync { position: absolute; top: 10px; right: 14px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 6px; color: var(--dim); }
+.sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); display: inline-block; }
+.sync.ok i { background: var(--good); box-shadow: 0 0 8px var(--good); }
+.sync.warn i { background: var(--amber); }
+.sync.ok { color: var(--good); } .sync.warn { color: var(--amber); }
+.banner { border: 1px dashed var(--amber); color: var(--amber); padding: 8px 12px; display: none; }
+.banner.show { display: block; }
+
+/* ---------- timeline ---------- */
+.timeline { border: 1px solid var(--dim); background: rgba(10,31,55,.6); padding: 12px 18px 22px; }
+.tl-head { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); margin-bottom: 10px; flex-wrap: wrap; }
+.tl-head b { color: var(--amber); font-weight: 500; }
+.tl-bar { position: relative; display: flex; gap: 3px; height: 44px; }
+.tl-seg { position: relative; border: 1px solid var(--dim); padding: 4px 8px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.tl-seg.pause { border-style: dashed; background: repeating-linear-gradient(135deg, rgba(99,211,255,.05) 0 6px, transparent 6px 12px); }
+.tl-seg.now { border-color: var(--amber); background: rgba(255,181,71,.08); }
+.tl-seg.past { opacity: .55; }
+.tl-seg .n { font-family: var(--display); font-weight: 600; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-seg .d { font-size: 10px; color: var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-today { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--amber); box-shadow: 0 0 10px var(--amber); pointer-events: none; }
+.tl-today::after { content: "TODAY"; position: absolute; bottom: -16px; left: 4px; font-size: 9px; letter-spacing: .2em; color: var(--amber); }
+
+/* ---------- main ---------- */
+main { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
+.sheet { border: 1px solid var(--dim); background: rgba(6,21,39,.55); position: relative; }
+.corner::before, .corner::after { content: ""; position: absolute; width: 14px; height: 14px; border-color: var(--line); border-style: solid; pointer-events: none; }
+.corner::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.corner::after { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+.viewer { height: clamp(380px, 62vh, 660px); overflow: hidden; }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+#gl:active { cursor: grabbing; }
+.vlabel { position: absolute; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: var(--line); pointer-events: none; text-shadow: 0 0 6px rgba(6,21,39,.9); }
+.vlabel.tl { top: 12px; left: 14px; } .vlabel.tr { top: 12px; right: 14px; text-align: right; }
+.vlabel.bl { bottom: 12px; left: 14px; max-width: calc(100% - 190px); line-height: 1.7; } .vlabel.br { bottom: 12px; right: 14px; text-align: right; color: var(--dim); }
+.vlabel .big { font-family: var(--display); font-size: 22px; letter-spacing: .06em; color: #fff; text-transform: none; display: block; margin-top: 2px; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--line); letter-spacing: .3em; font-size: 11px; pointer-events: none; }
+.hot { position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px; cursor: pointer; }
+.hot .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--amber); background: rgba(255,181,71,.25); box-shadow: 0 0 10px var(--amber); flex: none; }
+.hot .lab { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #fff; background: rgba(6,21,39,.85); border: 1px solid var(--dim); padding: 2px 6px; white-space: nowrap; }
+.hot:hover .lab, .hot:focus-visible .lab { border-color: var(--amber); color: var(--amber); }
+.hot.left { flex-direction: row-reverse; }
+
+.parts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-top: 12px; }
+.part {
+  text-align: left; border: 1px solid var(--dim); background: rgba(10,31,55,.75); padding: 10px 10px 9px; cursor: pointer; display: grid; gap: 4px; position: relative;
+}
+.part:hover { border-color: var(--line); }
+.part[aria-current="true"] { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+.part .code { font-size: 10px; letter-spacing: .18em; color: var(--dim); }
+.part .nm { font-family: var(--display); font-weight: 600; font-size: 15px; color: #fff; line-height: 1.15; }
+.part .st { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.meter { height: 3px; background: rgba(99,211,255,.15); position: relative; overflow: hidden; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--line); }
+.st-done { color: var(--good); } .st-prog { color: var(--amber); } .st-none { color: var(--dim); }
+.meter.done i { background: var(--good); } .meter.prog i { background: var(--amber); }
+
+/* ---------- detail ---------- */
+.detail { padding: 16px 16px 18px; display: grid; gap: 18px; }
+.d-head { display: grid; gap: 6px; }
+.d-head .code { font-size: 10px; letter-spacing: .22em; color: var(--line); }
+.d-head h2 { margin: 0; font-family: var(--display); font-size: 26px; font-weight: 700; color: #fff; letter-spacing: .03em; text-wrap: balance; }
+.d-head p { margin: 0; color: #a9cbe0; max-width: 62ch; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; border: 1px solid currentColor; padding: 2px 8px; width: fit-content; }
+.spec { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 11px; color: var(--line); font-variant-numeric: tabular-nums; border-top: 1px dashed var(--dim); border-bottom: 1px dashed var(--dim); padding: 6px 0; }
+.spec span b { color: var(--dim); font-weight: 400; margin-right: 6px; }
+section h3 { margin: 0 0 8px; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--dim); font-weight: 500; display: flex; justify-content: space-between; gap: 8px; }
+section h3 span { color: var(--line); }
+.tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.tasks label { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; padding: 6px 6px; cursor: pointer; border-left: 2px solid transparent; }
+.tasks label:hover { background: rgba(99,211,255,.06); border-left-color: var(--line); }
+.tasks input { appearance: none; width: 16px; height: 16px; margin: 2px 0 0; border: 1px solid var(--line); display: grid; place-items: center; cursor: pointer; }
+.tasks input:checked { background: var(--good); border-color: var(--good); }
+.tasks input:checked::after { content: ""; width: 8px; height: 4px; border: solid var(--paper); border-width: 0 0 2px 2px; transform: rotate(-45deg) translate(1px, -1px); }
+.tasks input:checked + span { color: #7fa6bf; text-decoration: line-through; text-decoration-color: rgba(92,242,166,.6); }
+.tasks input:disabled { opacity: .4; cursor: not-allowed; }
+form.row { display: grid; gap: 8px; }
+.fields { display: grid; grid-template-columns: 1fr 74px 74px; gap: 6px; }
+.fields.withpart { grid-template-columns: 1fr 120px; }
+.fields.withpart + .fields { grid-template-columns: 74px 74px 1fr; }
+label.f { display: grid; gap: 3px; font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--dim); }
+input[type=text], input[type=number], textarea, select {
+  background: rgba(6,21,39,.9); border: 1px solid var(--dim); padding: 7px 9px; width: 100%; min-width: 0; font-size: 12px; text-transform: none; letter-spacing: normal;
+}
+textarea { resize: vertical; min-height: 58px; }
+input:focus, textarea:focus, select:focus { border-color: var(--line); outline: none; }
+.btn { background: transparent; border: 1px solid var(--line); color: var(--line); padding: 7px 14px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase; cursor: pointer; justify-self: start; }
+.btn:hover { background: rgba(99,211,255,.12); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.jobs { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.job { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; border: 1px solid var(--dim); padding: 8px 10px; background: rgba(10,31,55,.7); }
+.job .jn { color: #fff; }
+.job .jm { font-size: 10px; color: var(--line); letter-spacing: .08em; font-variant-numeric: tabular-nums; }
+.job .ja { grid-row: span 2; display: flex; gap: 6px; align-items: center; }
+.job .ja button { background: none; border: 1px solid var(--dim); color: var(--text); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; padding: 4px 8px; cursor: pointer; }
+.job .ja button:hover { border-color: var(--line); color: var(--line); }
+.job.printing { border-color: var(--amber); }
+.job.done { opacity: .6; }
+.job.failed { border-color: #ff6b6b; }
+.js-queued { color: var(--line); } .js-printing { color: var(--amber); } .js-done { color: var(--good); } .js-failed { color: #ff6b6b; }
+.empty { color: var(--dim); font-size: 12px; padding: 4px 0; }
+.log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 0; max-height: 340px; overflow-y: auto; border-left: 1px solid var(--dim); }
+.log li { padding: 6px 0 8px 14px; position: relative; }
+.log li::before { content: ""; position: absolute; left: -4px; top: 11px; width: 7px; height: 7px; background: var(--paper); border: 1px solid var(--line); transform: rotate(45deg); }
+.log li.task::before { border-color: var(--good); }
+.log .when { font-size: 10px; letter-spacing: .1em; color: var(--dim); font-variant-numeric: tabular-nums; }
+.log .tag { font-size: 9px; letter-spacing: .14em; color: var(--line); text-transform: uppercase; margin-left: 8px; }
+.log .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+.log li.task .txt { color: #9fc4d9; }
+/* inspector + panel board */
+.insp { border: 1px solid var(--dim); background: rgba(10,31,55,.85); padding: 12px 14px; display: grid; gap: 8px; position: relative; }
+.insp.live { border-color: var(--amber); box-shadow: 0 0 0 1px rgba(255,181,71,.35), 0 0 24px rgba(255,181,71,.12); }
+.insp .ic { font-size: 10px; letter-spacing: .22em; color: var(--line); text-transform: uppercase; display: flex; justify-content: space-between; gap: 8px; }
+.insp .ic em { font-style: normal; color: var(--amber); }
+.insp .in { font-family: var(--display); font-size: 22px; font-weight: 700; color: #fff; line-height: 1.1; }
+.insp .row2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.swatch { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--text); border: 1px solid var(--dim); padding: 2px 8px; }
+.swatch i { width: 10px; height: 10px; display: inline-block; }
+.steps { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.step { border: 1px solid var(--dim); background: rgba(6,21,39,.9); color: var(--text); padding: 8px 10px; text-align: left; cursor: pointer; display: grid; gap: 2px; }
+.step b { font-weight: 500; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; }
+.step small { font-size: 10px; color: var(--dim); }
+.step:hover:not(:disabled) { border-color: var(--line); }
+.step.on { border-color: var(--good); background: rgba(92,242,166,.1); }
+.step.on b { color: var(--good); }
+.step.on.final { border-color: #fff; background: rgba(255,255,255,.08); }
+.step.on.final b { color: #fff; }
+.step:disabled { opacity: .45; cursor: not-allowed; }
+.insp .hint { font-size: 11px; color: #a9cbe0; }
+.board { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.board li { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 8px; align-items: center; padding: 5px 6px; border-left: 2px solid transparent; cursor: pointer; }
+.board li:hover, .board li.hl { background: rgba(255,181,71,.07); border-left-color: var(--amber); }
+.board li.sel { border-left-color: var(--line); background: rgba(99,211,255,.07); }
+.board .dot { width: 10px; height: 10px; border: 1px solid var(--line); transform: rotate(45deg); }
+.board .dot.painted { background: var(--good); border-color: var(--good); }
+.board .dot.sewn { background: linear-gradient(135deg, #c22234 50%, #2756a8 50%); border-color: #fff; }
+.board .dot.black { background: #0b0d12; border-color: #fff; }
+.board .bn { font-size: 12px; }
+.board .bn small { color: var(--dim); margin-left: 6px; font-size: 10px; letter-spacing: .1em; }
+.mini { background: none; border: 1px solid var(--dim); color: var(--dim); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; padding: 3px 6px; cursor: pointer; }
+.mini:hover:not(:disabled) { border-color: var(--line); color: var(--line); }
+.mini.on { border-color: var(--good); color: var(--good); }
+.mini.on.final { border-color: #fff; color: #fff; }
+.mini:disabled { opacity: .4; cursor: not-allowed; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 10px; height: 10px; display: inline-block; }
+.sep { position: absolute; right: 14px; bottom: 12px; background: rgba(6,21,39,.85); border: 1px solid var(--amber); color: var(--amber); font-size: 10px; letter-spacing: .2em; text-transform: uppercase; padding: 8px 12px; cursor: pointer; z-index: 3; }
+.sep:hover { background: rgba(255,181,71,.14); }
+.sep[aria-pressed="true"] { background: var(--amber); color: var(--paper); }
+.tip { position: absolute; pointer-events: none; z-index: 4; background: rgba(6,21,39,.92); border: 1px solid var(--amber); padding: 6px 9px; font-size: 11px; display: none; transform: translate(14px, -50%); white-space: nowrap; }
+.tip b { display: block; font-family: var(--display); font-size: 14px; color: #fff; font-weight: 600; }
+.tip span { color: var(--amber); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pulseB { 0%,100% { box-shadow: 0 0 0 1px rgba(255,181,71,.35), 0 0 18px rgba(255,181,71,.10); } 50% { box-shadow: 0 0 0 1px rgba(255,181,71,.6), 0 0 30px rgba(255,181,71,.22); } }
+@keyframes pop { from { opacity: 0; transform: translate(8px, -50%) scale(.94); } to { opacity: 1; transform: translate(14px, -50%) scale(1); } }
+@keyframes scanIn { from { background-position: 0 -120%; } to { background-position: 0 220%; } }
+.insp > * { animation: rise .32s ease both; }
+.insp > *:nth-child(2) { animation-delay: .04s; } .insp > *:nth-child(3) { animation-delay: .08s; } .insp > *:nth-child(4) { animation-delay: .12s; } .insp > *:nth-child(5) { animation-delay: .16s; }
+.insp.live { animation: pulseB 1.6s ease-in-out infinite; }
+.insp::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, transparent 0, rgba(99,211,255,.10) 50%, transparent 100%) no-repeat; background-size: 100% 40%; animation: scanIn 1.1s ease-out 1; }
+.tip.pop { animation: pop .18s ease-out; }
+.board li { transition: background .2s, border-color .2s; }
+.step, .mini { transition: border-color .2s, background .2s, color .2s; }
+.part { transition: border-color .2s, transform .2s; }
+.part:hover { transform: translateY(-2px); }
+.fsb { position: absolute; top: 6px; right: 120px; background: rgba(6,21,39,.85); border: 1px solid var(--line); color: var(--line); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; padding: 4px 10px; cursor: pointer; }
+.fsb:hover { background: rgba(99,211,255,.14); }
+@media (max-width: 560px) { .fsb { position: static; justify-self: start; } }
+.qbar { display: none; }
+/* ---------- phone layout ---------- */
+@media (max-width: 700px) {
+  .wrap { padding: calc(10px + env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom)); gap: 10px; }
+  header.title { padding: 10px 12px 12px; gap: 10px; }
+  .brand h1 { font-size: 30px; }
+  .brand .mk { font-size: 10px; letter-spacing: .26em; }
+  .meta { grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 22px; }
+  .meta .v { font-size: 18px; }
+  .timeline { padding: 8px 12px 20px; }
+  .tl-head { margin-bottom: 6px; font-size: 9px; }
+  .tl-bar { height: 30px; gap: 2px; }
+  .tl-seg { padding: 2px 5px; }
+  .tl-seg .d { display: none; }
+  .tl-seg .n { font-size: 10px; }
+  main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+  .viewer, .parts, .detail { width: 100%; }
+  main > div:first-child { display: contents; }
+  .viewer { position: sticky; top: env(safe-area-inset-top); z-index: 5; height: 46svh; min-height: 300px; background: var(--paper); }
+  .vlabel.bl, .vlabel.tr { display: none; }
+  .vlabel.tl { top: 8px; left: 10px; font-size: 9px; }
+  .vlabel .big { font-size: 18px; }
+  .sep { top: 10px; right: 10px; bottom: auto; padding: 7px 10px; font-size: 9px; }
+  .hot .lab { font-size: 9px; padding: 1px 5px; }
+  .parts { display: flex; overflow-x: auto; gap: 6px; margin: 0; padding-bottom: 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+  .part { flex: 0 0 136px; scroll-snap-align: start; padding: 8px 9px; }
+  .part .nm { font-size: 14px; }
+  .part:hover { transform: none; }
+  .detail { padding: 14px 12px 16px; gap: 16px; }
+  .d-head h2 { font-size: 22px; }
+  .tasks label { padding: 9px 6px; }
+  .board li { padding: 8px 4px; grid-template-columns: 12px 1fr auto auto; }
+  .mini { padding: 6px 7px; }
+  .qbar:not([hidden]) { display: grid; position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; background: rgba(6,21,39,.92); border: 1px solid var(--amber); padding: 8px 8px 8px 10px; animation: rise .25s ease both; }
+  .qbar .qn { font-family: var(--display); font-weight: 600; font-size: 15px; color: #fff; line-height: 1.1; }
+  .qbar .qs { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+  .qbar .mini { padding: 8px 9px; font-size: 9px; }
+  .fsb { display: none; }
+  footer { font-size: 9px; }
+}
+.backup { display: flex; gap: 8px; flex-wrap: wrap; }
+.backup .btn { font-size: 10px; padding: 6px 10px; }
+footer { align-items: center; }
+footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transform: uppercase; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+@media (max-width: 960px) {
+  main { grid-template-columns: 1fr; }
+  .viewer { height: clamp(320px, 56vh, 520px); }
+}
+@media (max-width: 560px) {
+  .vlabel.br { display: none; }
+  header.title { grid-template-columns: 1fr; }
+  .meta { text-align: left; grid-template-columns: repeat(3, 1fr); }
+  .sync { position: static; order: -1; }
+  .tl-seg .d { display: none; }
+  .tl-seg .n { font-size: 11px; }
+  .parts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fields, .fields.withpart, .fields.withpart + .fields { grid-template-columns: 1fr 1fr; }
+  .fields:not(.r2) > label:first-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three.module.min.js",
+  "three/addons/": "./vendor/jsm/"
+} }
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="title corner">
+    <div class="brand">
+      <h1>SPIDER-MAN</h1>
+      <div class="mk">SUIT MK1 · BUILD LOG</div>
+    </div>
+    <div class="meta" aria-label="Build summary">
+      <div class="k">Complete</div><div class="k">Tasks</div><div class="k">To target</div>
+      <div class="v" id="m-pct">0%</div><div class="v" id="m-tasks">0/0</div><div class="v" id="m-days">–</div>
+    </div>
+    <div class="sync" id="sync"><i></i><span>Connecting</span></div>
+    <button class="fsb" id="fsb" type="button" hidden>Full screen</button>
+  </header>
+  <div class="banner" id="banner" role="status"></div>
+
+  <section class="timeline corner" aria-label="Build schedule">
+    <div class="tl-head"><span>Schedule · Nov 2026 – Feb 2027</span><span>Now: <b id="tl-now">–</b></span></div>
+    <div class="tl-bar" id="tl"></div>
+  </section>
+
+  <main>
+    <div>
+      <div class="sheet viewer corner" id="viewer">
+        <canvas id="gl" aria-label="3D model viewer. Drag to rotate, scroll or pinch to zoom."></canvas>
+        <div class="vlabel tl">Drawing <span class="big" id="v-name">Full suit</span></div>
+        <div class="vlabel tr" id="v-code">SM-00<br>Sheet 1 of 8<br>Drag to rotate</div>
+        <div class="vlabel bl" id="v-spec"></div>
+        <div class="loading" id="loading">LOADING MODEL</div>
+        <div id="hots"></div>
+        <div class="tip" id="tip" role="tooltip"></div>
+        <button class="sep" id="sep" type="button" aria-pressed="false" hidden>Separate parts</button>
+        <div class="qbar" id="qbar" hidden></div>
+      </div>
+      <nav class="parts" id="parts" aria-label="Parts"></nav>
+    </div>
+    <aside class="sheet detail corner" id="detail" aria-live="polite"></aside>
+  </main>
+  <footer>
+    <span>Rafik · Cairo workshop · Target Feb 14 2027</span>
+    <span class="backup">
+      <button class="btn" id="exp" type="button">Export progress</button>
+      <label class="btn" for="imp">Import progress</label>
+      <input id="imp" type="file" accept="application/json,.json" hidden>
+    </span>
+  </footer>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+/* ================= data: parts, tasks, schedule ================= */
+const PHASES = [
+  { n: 'P1 · Pattern', s: '2026-11-02', e: '2026-11-15' },
+  { n: 'P2 · Cut & puff paint', s: '2026-11-16', e: '2026-12-13' },
+  { n: 'Finals pause', s: '2026-12-14', e: '2027-01-03', pause: true },
+  { n: 'P3 · Sew the body', s: '2027-01-04', e: '2027-01-24' },
+  { n: 'P4 · Mask', s: '2027-01-25', e: '2027-02-14' },
+];
+const TARGET = '2027-02-14';
+const PRINTED = ['faceshell', 'lenses', 'logos', 'webshooters'];
+const PARTS = [
+  { id: 'suit', code: 'SM-00', name: 'Full suit', view: 'suit',
+    desc: 'The assembly. Tap a marker on the model or a part below to open its sheet.',
+    tasks: [['s-tryon', 'Full try-on with mask and web shooters'], ['s-photo', 'Photoshoot'], ['s-post', 'Post it on your business account']] },
+  { id: 'body', code: 'SM-01', name: 'Body suit', view: 'body',
+    desc: 'Hover a panel to inspect it, click to select. Puff painted panels turn green (ready to sew); sewn panels show their real colour.',
+    tasks: [
+      ['b-buy', 'Buy and download the ATX Spider BND pattern'], ['b-size', 'Measure yourself and pick your size'],
+      ['b-paper', 'Print, tape and cut out the paper pattern'], ['b-sleeve', 'Test-sew one sleeve from scrap'],
+      ['b-fabric', 'Lay the pieces on the spandex to check you have enough'], ['b-cut', 'Cut every panel, red and blue'],
+      ['b-chalk', 'Chalk the web layout, marking where lines meet the seams'], ['b-grid', 'Chalk the brick grid on the blue panels'],
+      ['b-touch', 'Touch-ups on every panel'], ['b-cure', 'Let the paint cure, panels stored flat'], ['b-zip', 'Put in the zipper'],
+      ['b-feet', 'Sew the feet'], ['b-gaps', 'Paint the short gaps where webs cross the seams'] ] },
+  { id: 'hood', code: 'SM-02', name: 'Mask hood', view: 'hood',
+    desc: 'Red spandex hood over the faceshell. Sew with the vertical lines facing you; watch the sides of the head, the chin and the top-to-back seam.',
+    tasks: [['h-cut', 'Cut the hood panels'], ['h-baste', 'Baste and check the sides of the head, chin and top-to-back seam'],
+      ['h-fit', 'Fit the hood over the faceshell']] },
+  { id: 'faceshell', code: 'SM-03', name: 'Faceshell', view: 'faceshell', units: 'mm',
+    desc: 'Printed inner shell that gives the mask its shape. Fit-test before the final print.',
+    tasks: [['f-test', 'Print a quick fit-test faceshell'], ['f-try', 'Try it on and note fit changes'],
+      ['f-final', 'Print the final faceshell'], ['f-finish', 'Prime, sand and finish']] },
+  { id: 'lenses', code: 'SM-04', name: 'Lenses', view: 'lenses',
+    desc: 'Your lens file (Normal.stl), with lens mesh, held on through the hood with magnets.',
+    tasks: [['l-frames', 'Print the lens frames'], ['l-mesh', 'Fit the lens mesh'],
+      ['l-mag', 'Glue magnets into the frames and faceshell'], ['l-test', 'Test the magnetic hold through the hood']] },
+  { id: 'logos', code: 'SM-05', name: 'Logo molds', view: 'mold',
+    desc: 'The chest and back designs, lifted from your suit model. Print a mold for each, cast in black silicone, glue to the stretched panels.',
+    tasks: [['g-files', 'Download the BND logo STLs (less thick versions)'], ['g-scale', 'Measure the chest panel and scale the logos'],
+      ['g-model', 'Model the molds in Fusion 360'], ['g-print', 'Print the molds with ironing on'],
+      ['g-prime', 'Prime and sand the cavities smooth'], ['g-test', 'Test cast one spider leg'],
+      ] },
+  { id: 'webshooters', code: 'SM-06', name: 'Web shooters', view: 'webshooter', units: 'mm',
+    desc: 'Printed shooter with magnet slots. Two needed.',
+    tasks: [['w-print', 'Print all parts for both shooters'], ['w-mag', 'Fit the magnets into the slots'],
+      ['w-asm', 'Assemble both shooters'], ['w-finish', 'Paint and finish']] },
+  { id: 'printer', code: 'SM-07', name: 'Printer queue', view: 'printer',
+    desc: 'Every print job for the build, across all parts. Mark a job printing and the toolhead on the drawing moves.',
+    tasks: [] },
+];
+const byId = Object.fromEntries(PARTS.map(p => [p.id, p]));
+// suit panels, split from the model by region; colours come from the model's own texture
+const PANELS = [
+  { id: 'mask', code: 'P-01', name: 'Mask hood', part: 'hood', dir: [0, 1, .15], d: 72 },
+  { id: 'torso_front', code: 'P-02', name: 'Front torso', part: 'body', dir: [0, .08, 1], d: 95 },
+  { id: 'arm_l', code: 'P-03', name: 'Left arm', part: 'body', dir: [1, .35, 0], d: 88 },
+  { id: 'arm_r', code: 'P-04', name: 'Right arm', part: 'body', dir: [-1, .35, 0], d: 88 },
+  { id: 'glove_l', code: 'P-05', name: 'Left glove', part: 'body', dir: [1, -.15, .2], d: 150 },
+  { id: 'glove_r', code: 'P-06', name: 'Right glove', part: 'body', dir: [-1, -.15, .2], d: 150 },
+  { id: 'boot_l', code: 'P-07', name: 'Left boot', part: 'body', dir: [.6, -1, .15], d: 70 },
+  { id: 'boot_r', code: 'P-08', name: 'Right boot', part: 'body', dir: [-.6, -1, .15], d: 70 },
+  { id: 'rest', code: 'P-09', name: 'Back, legs and belt', part: 'body', dir: [0, -.1, -1], d: 65 },
+  { id: 'logo_chest', code: 'L-01', name: 'Chest logo', part: 'logos', logo: true, dir: [0, .15, 1], d: 165 },
+  { id: 'logo_back', code: 'L-02', name: 'Back logo', part: 'logos', logo: true, dir: [0, .15, -1], d: 140 },
+];
+const panelById = Object.fromEntries(PANELS.map(p => [p.id, p]));
+const STEPS = { fabric: [['painted', 'Puff painted', 'Ready to sew'], ['sewn', 'Sewn', 'Done']], logo: [['cast', 'Cast', 'Ready to glue'], ['glued', 'Glued', 'On the suit']] };
+const stepsOf = p => STEPS[p.logo ? 'logo' : 'fabric'];
+const PANEL_INFO = {};   // id -> { red, blue } face share, filled when the model loads
+function panelsFor(partId) {
+  if (partId === 'body') return PANELS;            // the whole suit, logos included
+  return PANELS.filter(p => p.part === partId);
+}
+
+/* ================= state + sync ================= */
+const state = { done: {}, logs: [], jobs: [], panels: {}, syncing: false };
+let db = null;
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+function setSync(kind, label) { const s = $('#sync'); s.className = 'sync ' + kind; s.querySelector('span').textContent = label; }
+function banner(msg) { const b = $('#banner'); b.textContent = msg || ''; b.classList.toggle('show', !!msg); }
+
+// one write at a time per document
+const chains = {};
+function serial(key, fn) { const p = (chains[key] || Promise.resolve()).then(fn, fn); chains[key] = p.catch(() => {}); return p; }
+function writeFail(e) {
+  const c = e && e.code;
+  if (c === 'quota_exceeded') banner('The build log is full. Delete old print jobs to make room.');
+  else banner('Could not save that change. Check your connection and try again.');
+}
+
+/* ---- storage on this device (localStorage), same shape as a small document store ---- */
+const LocalDB = (() => {
+  const KEY = 'suit-mk1-data-v1', COLS = ['parts', 'panels', 'logs', 'jobs'];
+  let data = read(); const subs = [];
+  function read() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } }
+  function write() { try { localStorage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { banner('Could not save on this device. Storage may be full or blocked (private browsing).'); return false; } }
+  const snap = (c, q) => {
+    let docs = Object.entries(data[c] || {}).map(([id, d]) => ({ id, exists: true, data: () => d, metadata: { fromCache: false, hasPendingWrites: false } }));
+    if (q.o) docs.sort((a, b) => { const x = a.data()[q.o], y = b.data()[q.o]; return (x > y ? 1 : x < y ? -1 : 0) * (q.dir === 'desc' ? -1 : 1); });
+    if (q.n) docs = docs.slice(0, q.n);
+    return { docs, size: docs.length, empty: !docs.length, metadata: { fromCache: false, hasPendingWrites: false }, docChanges: () => [] };
+  };
+  const fire = c => subs.filter(s => s.c === c).forEach(s => s.cb(snap(c, s.q)));
+  const doc = path => { const [c, id] = path.split('/'); return {
+    async set(d) { (data[c] = data[c] || {})[id] = d; write(); fire(c); },
+    async update(d) { if (!data[c]?.[id]) throw { code: 'invalid_argument' }; data[c][id] = { ...data[c][id], ...d }; write(); fire(c); },
+    async delete() { if (data[c]) delete data[c][id]; write(); fire(c); },
+  }; };
+  const coll = (c, q = {}) => ({
+    orderBy: (f, d) => coll(c, { ...q, o: f, dir: d }), limit: n => coll(c, { ...q, n }),
+    onSnapshot(cb) { const s = { c, q, cb }; subs.push(s); setTimeout(() => cb(snap(c, q)), 0); return () => subs.splice(subs.indexOf(s), 1); },
+    async add(d) { const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7); (data[c] = data[c] || {})[id] = d; write(); fire(c); return doc(c + '/' + id); },
+    doc: id => doc(c + '/' + id),
+  });
+  window.addEventListener('storage', e => { if (e.key === KEY) { data = read(); COLS.forEach(fire); } });   // other tabs
+  const stamp = d => d?.updatedAt || d?.at || d?.createdAt || '';
+  return {
+    collection: c => coll(c), doc,
+    dump: () => JSON.parse(JSON.stringify(data)),
+    merge(inc) {   // newest copy of each record wins; nothing local is deleted
+      let n = 0;
+      COLS.forEach(c => Object.entries(inc[c] || {}).forEach(([id, d]) => {
+        const cur = data[c]?.[id];
+        if (!cur || stamp(d) > stamp(cur)) { (data[c] = data[c] || {})[id] = d; n++; }
+      }));
+      write(); COLS.forEach(fire); return n;
+    },
+  };
+})();
+async function exportProgress() {
+  const body = JSON.stringify({ app: 'suit-mk1', version: 1, exportedAt: new Date().toISOString(), data: LocalDB.dump() }, null, 1);
+  const name = 'suit-mk1-progress-' + new Date().toISOString().slice(0, 10) + '.json';
+  const file = new File([body], name, { type: 'application/json' });
+  try { if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: 'Suit Mk1 progress' }); return; } } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$('#exp').addEventListener('click', exportProgress);
+$('#imp').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (j.app !== 'suit-mk1' || !j.data) throw new Error('not a Suit Mk1 file');
+    const n = LocalDB.merge(j.data);
+    banner('Imported ' + n + ' updated record' + (n === 1 ? '' : 's') + ' from ' + f.name + '.'); setTimeout(() => banner(''), 6000);
+  } catch (err) { banner('That file could not be imported. Choose a progress file exported from Suit Mk1.'); }
+});
+
+async function startSync() {
+  const api = LocalDB;
+  db = api; state.syncing = true;
+  let first = { parts: false, logs: false, jobs: false };
+  const timer = setTimeout(() => { if (!first.parts) { setSync('warn', 'Reconnecting'); banner('Saved progress is taking a while to load.'); } }, 10000);
+  const settle = (k, snap) => { if (!snap.metadata.fromCache) { first[k] = true; if (first.parts) { clearTimeout(timer); setSync('ok', 'Saved on this device'); } } };
+  const onErr = e => { clearTimeout(timer); setSync('warn', 'Offline'); banner('Could not read saved progress. Reload the app.'); };
+  db.collection('parts').onSnapshot(snap => {
+    const done = {}; snap.docs.forEach(d => { done[d.id] = { ...(d.data().done || {}) }; });
+    state.done = done; settle('parts', snap); render();
+  }, onErr);
+  db.collection('panels').onSnapshot(snap => {
+    const ps = {}; snap.docs.forEach(d => { ps[d.id] = { ...d.data() }; });
+    state.panels = ps; render(); applyAllStates();
+  }, onErr);
+  db.collection('logs').orderBy('at', 'desc').limit(400).onSnapshot(snap => {
+    state.logs = snap.docs.map(d => ({ id: d.id, ...d.data() })); settle('logs', snap); render();
+  }, onErr);
+  db.collection('jobs').orderBy('createdAt', 'asc').onSnapshot(snap => {
+    state.jobs = snap.docs.map(d => ({ id: d.id, ...d.data() })); settle('jobs', snap); render(); updatePrinterAnim();
+  }, onErr);
+  render();
+}
+
+async function toggleTask(partId, taskId, on) {
+  if (!db) return;
+  const cur = { ...(state.done[partId] || {}) };
+  if (on) cur[taskId] = new Date().toISOString(); else delete cur[taskId];
+  state.done[partId] = cur; render();
+  const label = (byId[partId].tasks.find(t => t[0] === taskId) || [, taskId])[1];
+  try {
+    await serial('parts/' + partId, () => db.doc('parts/' + partId).set({ done: cur, updatedAt: new Date().toISOString() }));
+    await db.collection('logs').add({ part: partId, kind: 'task', text: (on ? 'Done: ' : 'Reopened: ') + label, at: new Date().toISOString() });
+  } catch (e) { writeFail(e); }
+}
+function panelStatus(id) {
+  const p = panelById[id], s = state.panels[id] || {};
+  if (p.logo) return s.glued ? 'glued' : s.cast ? 'cast' : 'todo';
+  return s.sewn ? 'sewn' : s.painted ? 'painted' : 'todo';
+}
+async function setStep(id, field, on) {
+  if (!db) return;
+  const p = panelById[id], [first, last] = stepsOf(p).map(x => x[0]);
+  const cur = { ...(state.panels[id] || {}) };
+  cur[field] = on;
+  if (field === last && on) cur[first] = true;        // sewn implies painted, glued implies cast
+  if (field === first && !on) cur[last] = false;
+  state.panels[id] = cur; render(); applyAllStates();
+  const label = stepsOf(p).find(x => x[0] === field)[1];
+  try {
+    await serial('panels/' + id, () => db.doc('panels/' + id).set({ ...cur, updatedAt: new Date().toISOString() }));
+    await db.collection('logs').add({ part: p.part, kind: 'task', text: (on ? label + ': ' : 'Undone, ' + label.toLowerCase() + ': ') + p.name, at: new Date().toISOString() });
+  } catch (e) { writeFail(e); }
+}
+async function addLog(partId, text) {
+  if (!db || !text.trim()) return;
+  try { await db.collection('logs').add({ part: partId, kind: 'note', text: text.trim().slice(0, 2000), at: new Date().toISOString() }); }
+  catch (e) { writeFail(e); }
+}
+async function addJob(job) {
+  if (!db) return;
+  try { await db.collection('jobs').add({ ...job, status: 'queued', createdAt: new Date().toISOString() }); }
+  catch (e) { writeFail(e); }
+}
+async function setJob(id, status) {
+  if (!db) return;
+  try {
+    await serial('jobs/' + id, () => db.doc('jobs/' + id).update({ status, updatedAt: new Date().toISOString() }));
+    const j = state.jobs.find(x => x.id === id);
+    if (j && (status === 'done' || status === 'failed')) await db.collection('logs').add({ part: j.part, kind: 'task', text: (status === 'done' ? 'Printed: ' : 'Print failed: ') + j.name, at: new Date().toISOString() });
+  } catch (e) { writeFail(e); }
+}
+async function delJob(id) { if (!db) return; try { await serial('jobs/' + id, () => db.doc('jobs/' + id).delete()); } catch (e) { writeFail(e); } }
+
+/* ================= derived ================= */
+function progress(p) {
+  let n = p.tasks.length, d = p.tasks.filter(t => state.done[p.id]?.[t[0]]).length;
+  PANELS.filter(x => x.part === p.id).forEach(x => { stepsOf(x).forEach(([f]) => { n++; if (state.panels[x.id]?.[f]) d++; }); });
+  return { n, d, pct: n ? d / n : 0, st: !n ? 'queue' : d === 0 ? 'none' : d === n ? 'done' : 'prog' };
+}
+const ST_LABEL = { none: 'Not started', prog: 'In progress', done: 'Done' };
+const day = s => new Date(s + 'T00:00:00');
+const fmtDate = s => new Date(s).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtStamp = s => { const d = new Date(s); return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+
+/* ================= rendering ================= */
+let current = 'suit';
+function renderTimeline() {
+  const tl = $('#tl'); tl.textContent = '';
+  const t0 = day(PHASES[0].s), t1 = day(PHASES.at(-1).e); t1.setDate(t1.getDate() + 1);
+  const span = t1 - t0, now = new Date();
+  let nowName = now < t0 ? 'Not started' : now >= t1 ? 'Finished' : '';
+  PHASES.forEach(ph => {
+    const s = day(ph.s), e = day(ph.e); e.setDate(e.getDate() + 1);
+    const seg = el('div', 'tl-seg' + (ph.pause ? ' pause' : ''));
+    seg.style.flex = String((e - s) / 864e5);
+    if (now >= s && now < e) { seg.classList.add('now'); nowName = ph.n; } else if (now >= e) seg.classList.add('past');
+    seg.append(el('div', 'n', ph.n), el('div', 'd', fmtDate(ph.s + 'T12:00') + ' – ' + fmtDate(ph.e + 'T12:00')));
+    tl.append(seg);
+  });
+  if (now >= t0 && now < t1) { const m = el('div', 'tl-today'); m.style.left = ((now - t0) / span * 100) + '%'; tl.append(m); }
+  $('#tl-now').textContent = nowName;
+  const days = Math.ceil((day(TARGET) - now) / 864e5);
+  $('#m-days').textContent = days > 0 ? days + 'd' : 'Done';
+}
+
+function renderParts() {
+  const box = $('#parts'); box.textContent = '';
+  let N = 0, D = 0;
+  PARTS.forEach(p => {
+    const pr = progress(p); N += pr.n; D += pr.d;
+    const b = el('button', 'part'); b.type = 'button';
+    b.setAttribute('aria-current', p.id === current ? 'true' : 'false');
+    b.addEventListener('click', () => select(p.id));
+    b.append(el('span', 'code', p.code), el('span', 'nm', p.name));
+    if (pr.st === 'queue') {
+      const q = state.jobs.filter(j => j.status === 'queued' || j.status === 'printing');
+      const pr2 = state.jobs.some(j => j.status === 'printing');
+      b.append(el('span', 'st ' + (pr2 ? 'st-prog' : 'st-none'), pr2 ? 'Printing · ' + q.length + ' in queue' : q.length + ' in queue'));
+      b.append(el('span', 'meter'));
+    } else {
+      b.append(el('span', 'st st-' + pr.st, ST_LABEL[pr.st] + ' · ' + pr.d + '/' + pr.n));
+      const m = el('span', 'meter ' + pr.st); const i = el('i'); i.style.width = (pr.pct * 100) + '%'; m.append(i); b.append(m);
+    }
+    box.append(b);
+  });
+  $('#m-pct').textContent = (N ? Math.round(D / N * 100) : 0) + '%';
+  $('#m-tasks').textContent = D + '/' + N;
+}
+
+function jobRow(j, showPart) {
+  const li = el('li', 'job ' + j.status);
+  li.append(el('div', 'jn', j.name));
+  const acts = el('div', 'ja');
+  const next = { queued: ['printing', 'Start'], printing: ['done', 'Done'], failed: ['queued', 'Requeue'], done: null }[j.status];
+  if (next) { const b = el('button', '', next[1]); b.type = 'button'; b.disabled = !db; b.addEventListener('click', () => setJob(j.id, next[0])); acts.append(b); }
+  if (j.status === 'printing') { const f = el('button', '', 'Failed'); f.type = 'button'; f.disabled = !db; f.addEventListener('click', () => setJob(j.id, 'failed')); acts.append(f); }
+  const x = el('button', '', 'Delete'); x.type = 'button'; x.disabled = !db; x.setAttribute('aria-label', 'Delete print job ' + j.name); x.addEventListener('click', () => delJob(j.id)); acts.append(x);
+  li.append(acts);
+  const meta = [];
+  if (showPart && byId[j.part]) meta.push(byId[j.part].name);
+  if (j.hours) meta.push(j.hours + ' h');
+  if (j.grams) meta.push(j.grams + ' g');
+  const m = el('div', 'jm'); const s = el('span', 'js-' + j.status, j.status.toUpperCase()); m.append(s, document.createTextNode(meta.length ? ' · ' + meta.join(' · ') : '')); li.append(m);
+  return li;
+}
+
+function jobForm(partId) {
+  const f = el('form', 'row');
+  const isPrinter = partId === 'printer';
+  const r1 = el('div', 'fields' + (isPrinter ? ' withpart' : ''));
+  const nameL = el('label', 'f', 'Print job'); const name = el('input'); name.type = 'text'; name.id = 'job-name-' + partId; name.placeholder = 'e.g. Faceshell final, 0.12 mm'; name.maxLength = 120; nameL.append(name); r1.append(nameL);
+  let partSel = null;
+  if (isPrinter) {
+    const pl = el('label', 'f', 'Part'); partSel = el('select'); partSel.id = 'job-part';
+    PRINTED.forEach(id => { const o = el('option', '', byId[id].name); o.value = id; partSel.append(o); });
+    pl.append(partSel); r1.append(pl);
+  }
+  const r2 = isPrinter ? el('div', 'fields r2') : r1;
+  const hL = el('label', 'f', 'Hours'); const h = el('input'); h.type = 'number'; h.min = '0'; h.step = '0.1'; h.id = 'job-h-' + partId; hL.append(h);
+  const gL = el('label', 'f', 'Grams'); const g = el('input'); g.type = 'number'; g.min = '0'; g.step = '1'; g.id = 'job-g-' + partId; gL.append(g);
+  r2.append(hL, gL);
+  const btn = el('button', 'btn', 'Add to queue'); btn.type = 'submit'; btn.disabled = !db;
+  f.append(r1); if (isPrinter) f.append(r2); f.append(btn);
+  f.addEventListener('submit', e => {
+    e.preventDefault(); if (!name.value.trim()) { name.focus(); return; }
+    addJob({ name: name.value.trim(), part: isPrinter ? partSel.value : partId, hours: h.value ? Number(h.value) : null, grams: g.value ? Number(g.value) : null });
+    name.value = ''; h.value = ''; g.value = '';
+  });
+  return f;
+}
+
+function renderDetail() {
+  const p = byId[current], pr = progress(p), box = $('#detail');
+  const keepNote = box.querySelector('textarea')?.value || '';
+  box.textContent = '';
+  const head = el('div', 'd-head');
+  head.append(el('div', 'code', p.code + ' · ' + (pr.st === 'queue' ? 'SHOP' : 'PART')), el('h2', '', p.name), el('p', '', p.desc));
+  if (pr.st !== 'queue') { const c = el('span', 'chip st-' + pr.st, ST_LABEL[pr.st] + ' · ' + pr.d + ' of ' + pr.n); head.append(c); }
+  box.append(head);
+  if (views[p.view]?.spec) { const s = el('div', 'spec'); views[p.view].spec.forEach(([k, v]) => { const sp = el('span'); sp.append(el('b', '', k), document.createTextNode(v)); s.append(sp); }); box.append(s); }
+
+  const plist = panelsFor(p.id);
+  if (plist.length) {
+    const sec = el('section');
+    const h = el('h3'); h.append(document.createTextNode('Panel inspector'), el('span', '', 'hover or click the model')); sec.append(h);
+    const insp = el('div', 'insp'); insp.id = 'insp'; sec.append(insp);
+    box.append(sec);
+    const sec2 = el('section'); const done = plist.filter(x => ['sewn', 'glued'].includes(panelStatus(x.id))).length;
+    const h2 = el('h3'); h2.append(document.createTextNode('Panels'), el('span', '', done + '/' + plist.length + ' finished')); sec2.append(h2);
+    const lg = el('div', 'legend');
+    [['Not started', 'transparent;border:1px solid #63d3ff'], ['Painted · ready to sew', '#5cf2a6'], ['Sewn', 'linear-gradient(135deg,#c22234 50%,#2756a8 50%)']].forEach(([t, c]) => { const sp = el('span'); const i = el('i'); i.style.cssText = 'background:' + c; sp.append(i, document.createTextNode(t)); lg.append(sp); });
+    sec2.append(lg);
+    const ul = el('ul', 'board'); ul.id = 'board'; ul.style.marginTop = '8px';
+    plist.forEach(x => {
+      const st = panelStatus(x.id), li = el('li'); li.dataset.panel = x.id;
+      if (x.id === selPanel) li.classList.add('sel');
+      const dot = el('span', 'dot ' + (st === 'sewn' ? 'sewn' : st === 'glued' ? 'black' : (st === 'painted' || st === 'cast') ? 'painted' : ''));
+      const nm = el('span', 'bn', x.name); nm.append(el('small', '', x.code));
+      li.append(dot, nm);
+      stepsOf(x).forEach(([f, label], i) => {
+        const b = el('button', 'mini' + (state.panels[x.id]?.[f] ? ' on' + (i ? ' final' : '') : ''), label); b.type = 'button'; b.disabled = !db;
+        b.setAttribute('aria-pressed', state.panels[x.id]?.[f] ? 'true' : 'false'); b.setAttribute('aria-label', label + ': ' + x.name);
+        b.addEventListener('click', ev => { ev.stopPropagation(); setStep(x.id, f, !state.panels[x.id]?.[f]); });
+        li.append(b);
+      });
+      li.addEventListener('mouseenter', () => setHover(x.id, 'list'));
+      li.addEventListener('mouseleave', () => setHover(null, 'list'));
+      li.addEventListener('click', () => selectPanel(x.id));
+      ul.append(li);
+    });
+    sec2.append(ul); box.append(sec2);
+  }
+
+  if (p.tasks.length) {
+    const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('Tasks'), el('span', '', pr.d + '/' + pr.n)); sec.append(h);
+    const ul = el('ul', 'tasks');
+    p.tasks.forEach(([tid, label]) => {
+      const li = el('li'); const lab = el('label'); const cb = el('input'); cb.type = 'checkbox'; cb.id = 'task-' + tid;
+      cb.checked = !!state.done[p.id]?.[tid]; cb.disabled = !db;
+      cb.addEventListener('change', () => toggleTask(p.id, tid, cb.checked));
+      lab.append(cb, el('span', '', label)); li.append(lab); ul.append(li);
+    });
+    sec.append(ul); box.append(sec);
+  }
+
+  if (PRINTED.includes(p.id) || p.id === 'printer') {
+    const sec = el('section'); const jobs = p.id === 'printer' ? state.jobs : state.jobs.filter(j => j.part === p.id);
+    const active = jobs.filter(j => j.status !== 'done').length;
+    const h = el('h3'); h.append(document.createTextNode(p.id === 'printer' ? 'Print queue' : 'Print jobs'), el('span', '', active + ' open · ' + (jobs.length - active) + ' done')); sec.append(h);
+    if (jobs.length) { const ul = el('ul', 'jobs'); const order = { printing: 0, queued: 1, failed: 2, done: 3 }; [...jobs].sort((a, b) => order[a.status] - order[b.status]).forEach(j => ul.append(jobRow(j, p.id === 'printer'))); sec.append(ul); }
+    else sec.append(el('div', 'empty', 'No print jobs yet. Add the first one below.'));
+    sec.append(jobForm(p.id)); box.append(sec);
+  }
+
+  const sec = el('section'); const logs = p.id === 'suit' ? state.logs : state.logs.filter(l => l.part === p.id);
+  const h = el('h3'); h.append(document.createTextNode(p.id === 'suit' ? 'Build log · all parts' : 'Build log'), el('span', '', logs.length + ' entries')); sec.append(h);
+  const f = el('form', 'row'); const ta = el('textarea'); ta.id = 'note-' + p.id; ta.placeholder = 'What did you do this session?'; ta.value = keepNote; ta.maxLength = 2000; ta.setAttribute('aria-label', 'New log entry');
+  const btn = el('button', 'btn', 'Log entry'); btn.type = 'submit'; btn.disabled = !db;
+  f.append(ta, btn); f.addEventListener('submit', e => { e.preventDefault(); const t = ta.value; ta.value = ''; addLog(p.id, t); });
+  sec.append(f);
+  if (logs.length) {
+    const ul = el('ul', 'log');
+    logs.slice(0, 120).forEach(l => {
+      const li = el('li', l.kind === 'task' ? 'task' : ''); const w = el('div', 'when', fmtStamp(l.at));
+      if (p.id === 'suit' && byId[l.part]) w.append(el('span', 'tag', byId[l.part].name));
+      li.append(w, el('div', 'txt', l.text)); ul.append(li);
+    });
+    sec.append(ul);
+  } else sec.append(el('div', 'empty', 'Nothing logged yet. Ticked tasks and finished prints show up here too.'));
+  box.append(sec);
+}
+
+function renderInspector() {
+  const box = $('#insp'); if (!box) return;
+  const id = hoverPanel || selPanel, pl = panelsFor(current);
+  box.textContent = ''; box.classList.toggle('live', !!hoverPanel);
+  if (!id || !pl.some(x => x.id === id)) {
+    box.append(el('div', 'ic', 'No panel selected'), el('div', 'hint', 'Hover a panel on the model to see its info. Click it to select it, then mark it puff painted or sewn. Use Separate parts to pull the suit apart.'));
+    return;
+  }
+  const p = panelById[id], st = panelStatus(id), info = PANEL_INFO[id];
+  const ic = el('div', 'ic'); ic.append(document.createTextNode(p.code + ' · ' + (p.logo ? 'Silicone cast' : 'Spandex panel')), el('em', '', hoverPanel ? 'Hover' : 'Selected'));
+  box.append(ic, el('div', 'in', p.name));
+  const r2 = el('div', 'row2');
+  if (p.logo) { const sw = el('span', 'swatch'); const i = el('i'); i.style.background = '#0b0d12'; i.style.border = '1px solid #fff'; sw.append(i, document.createTextNode('black silicone')); r2.append(sw); }
+  else if (info) {
+    [['red', '#c22234'], ['blue', '#2756a8']].forEach(([k, c]) => { if (info[k] > 0.02) { const sw = el('span', 'swatch'); const i = el('i'); i.style.background = c; sw.append(i, document.createTextNode(k + ' ' + Math.round(info[k] * 100) + '%')); r2.append(sw); } });
+  }
+  const label = { todo: p.logo ? 'Not cast yet' : 'Not painted yet', painted: 'Painted · ready to sew', sewn: 'Sewn', cast: 'Cast · ready to glue', glued: 'Glued on' }[st];
+  r2.append(el('span', 'chip ' + (st === 'todo' ? 'st-none' : st === 'sewn' || st === 'glued' ? 'st-done' : 'st-prog'), label));
+  box.append(r2);
+  const steps = el('div', 'steps');
+  stepsOf(p).forEach(([f, lab, sub], i) => {
+    const on = !!state.panels[id]?.[f];
+    const b = el('button', 'step' + (on ? ' on' + (i ? ' final' : '') : '')); b.type = 'button'; b.disabled = !db;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.append(el('b', '', (on ? '✓ ' : '') + lab), el('small', '', on ? sub : 'Mark as ' + lab.toLowerCase()));
+    b.addEventListener('click', () => setStep(id, f, !on)); steps.append(b);
+  });
+  box.append(steps);
+  const next = { todo: p.logo ? 'Next: cast it in the printed mold.' : 'Next: puff paint it flat on the board.', painted: 'Next: sew it, vertical lines facing you.', cast: 'Next: glue it to the stretched panel.', sewn: 'Finished.', glued: 'Finished.' }[st];
+  box.append(el('div', 'hint', next));
+}
+function renderQbar() {
+  const q = $('#qbar'); if (!q) return;
+  const id = selPanel, show = id && currentView?.set?.pieces?.[id];
+  q.hidden = !show; q.textContent = ''; if (!show) return;
+  const p = panelById[id], st = panelStatus(id);
+  const t = el('div'); t.append(el('div', 'qn', p.name), el('div', 'qs', p.code + ' · ' + { todo: p.logo ? 'not cast' : 'not painted', painted: 'ready to sew', sewn: 'sewn', cast: 'ready to glue', glued: 'glued' }[st]));
+  q.append(t);
+  stepsOf(p).forEach(([f, label], i) => {
+    const on = !!state.panels[id]?.[f];
+    const b = el('button', 'mini' + (on ? ' on' + (i ? ' final' : '') : ''), (on ? '✓ ' : '') + label); b.type = 'button'; b.disabled = !db;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.addEventListener('click', () => setStep(id, f, !on)); q.append(b);
+  });
+}
+function render() { renderParts(); renderDetail(); renderInspector(); renderQbar(); }
+let hoverPanel = null, selPanel = null;
+function setHover(id, from) {
+  if (hoverPanel === id) return;
+  hoverPanel = id; renderInspector(); renderQbar(); updateGlow();
+  document.querySelectorAll('#board li').forEach(li => li.classList.toggle('hl', li.dataset.panel === id));
+}
+function selectPanel(id) {
+  const p = panelById[id]; if (!p) return;
+  selPanel = id;
+  if (!panelsFor(current).some(x => x.id === id)) { select(current === 'suit' ? 'body' : p.part); return; }
+  render(); updateGlow();
+}
+
+function select(id) {
+  if (!byId[id]) id = 'suit';
+  current = id;
+  if (location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
+  const p = byId[id];
+  $('#v-name').textContent = p.name;
+  $('#v-code').innerHTML = '';
+  $('#v-code').append(document.createTextNode(p.code), document.createElement('br'), document.createTextNode('Sheet ' + (PARTS.indexOf(p) + 1) + ' of ' + PARTS.length), document.createElement('br'), document.createTextNode('Drag to rotate'));
+  showView(p.view);
+  render();
+}
+
+/* ================= 3D: hologram renderer ================= */
+const canvas = $('#gl'), viewer = $('#viewer');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.localClippingEnabled = true;
+const scene = new THREE.Scene();
+const clock = new THREE.Clock();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 5000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = .08; controls.autoRotate = !matchMedia('(prefers-reduced-motion: reduce)').matches; controls.autoRotateSpeed = 0.8;
+let pausedAt = -1;
+function pauseSpin() { controls.autoRotate = false; resize.moved = true; pausedAt = clock ? clock.getElapsedTime() : 0; }
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const INK = new THREE.Color('#63d3ff'), WHITE = new THREE.Color('#e8fbff'), AMBER = new THREE.Color('#ffb547'), GREEN = new THREE.Color('#5cf2a6'), MINT = new THREE.Color('#c9ffe6');
+const SEWN = { red: new THREE.Color('#ff3a4f'), blue: new THREE.Color('#3f86ff'), web: new THREE.Color('#ffd9de'), logo: new THREE.Color('#ffffff') };
+const holoMats = [];
+// hologram shader: fresnel glow, scan bands, an optional procedural fabric grid (uPat), selection sweep (uScan)
+function holoMat(color, opacity) {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uColor: { value: color.clone() }, uOpacity: { value: opacity }, uTime: { value: 0 }, uFreq: { value: 1 }, uGlow: { value: 0 },
+      uPat: { value: 0 }, uCell: { value: 2.2 }, uScan: { value: 0 }, uScanY: { value: 0 }, uScanW: { value: 4 } },
+    vertexShader: `
+      varying vec3 vN; varying vec3 vV; varying vec3 vW; varying vec3 vWN;
+      void main(){
+        vec4 mvPosition = modelViewMatrix * vec4(position,1.0);
+        vN = normalize(normalMatrix * normal); vV = -mvPosition.xyz;
+        vW = (modelMatrix * vec4(position,1.0)).xyz; vWN = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * mvPosition;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uOpacity; uniform float uTime; uniform float uFreq; uniform float uGlow;
+      uniform float uPat; uniform float uCell; uniform float uScan; uniform float uScanY; uniform float uScanW;
+      varying vec3 vN; varying vec3 vV; varying vec3 vW; varying vec3 vWN;
+      float bricks(vec2 p){
+        p /= uCell; p.y *= 2.0;
+        float row = floor(p.y); p.x += mod(row, 2.0) * 0.5;
+        vec2 f = fract(p); vec2 d = min(f, 1.0 - f);
+        float e = min(d.x * 1.6, d.y);
+        return 1.0 - smoothstep(0.0, 0.08, e);
+      }
+      void main(){
+        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
+        float band = 0.5 + 0.5 * sin(vW.y * uFreq - uTime * 2.0);
+        float sweep = smoothstep(0.96, 1.0, fract(vW.y * uFreq * 0.04 - uTime * 0.12));
+        vec3 an = abs(vWN);
+        vec2 q = an.z > an.x && an.z > an.y ? vW.xy : (an.x > an.y ? vW.zy : vW.xz);
+        float pat = bricks(q) * uPat;
+        float shimmer = 0.55 + 0.45 * sin(uTime * 1.3 + vW.y * 0.15 + vW.x * 0.08);
+        float scan = uScan * (1.0 - smoothstep(0.0, uScanW, abs(vW.y - uScanY)));
+        vec3 c = mix(uColor, vec3(1.0, 0.71, 0.28), uGlow * 0.8);
+        float a = uOpacity * (0.12 + f * 0.9) * (0.82 + 0.18 * band) + sweep * 0.18;
+        a += pat * shimmer * (0.18 + f * 0.5) + uPat * 0.08;
+        a *= 1.0 + uGlow * 1.2;
+        a += scan * 0.55;
+        vec3 col = c * (0.55 + f * 0.9 + sweep + pat * 0.8) + vec3(1.0, 0.85, 0.6) * scan;
+        gl_FragColor = vec4(col, a);
+      }`,
+    transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+  });
+  holoMats.push(m); return m;
+}
+// a dark, normally blended hologram for glued (black) silicone logos
+function darkMat() {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uGlow: { value: 0 }, uTime: { value: 0 }, uScan: { value: 0 }, uScanY: { value: 0 }, uScanW: { value: 4 } },
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = -mv.xyz; vW = (modelMatrix * vec4(position,1.0)).xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform float uGlow; uniform float uTime; uniform float uScan; uniform float uScanY; uniform float uScanW; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){
+        float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
+        float scan = uScan * (1.0 - smoothstep(0.0, uScanW, abs(vW.y - uScanY)));
+        vec3 c = vec3(0.04, 0.05, 0.08) + vec3(0.75, 0.92, 1.0) * (0.12 + f * 1.4) + vec3(1.0, 0.71, 0.28) * (uGlow * 0.45 + scan * 0.8);
+        gl_FragColor = vec4(c, 0.93);
+      }`,
+    transparent: true, side: THREE.DoubleSide,
+  });
+  holoMats.push(m); return m;
+}
+function holo(geom, { color = INK, fill = .55, edge = .35, edgeColor, thresh = 28 } = {}) {
+  const g = new THREE.Group();
+  if (!geom.attributes.normal) geom.computeVertexNormals();
+  const mesh = new THREE.Mesh(geom, holoMat(color, fill)); mesh.renderOrder = 2; g.add(mesh);
+  if (edge > 0) {
+    const lines = new THREE.LineSegments(new THREE.EdgesGeometry(geom, thresh), new THREE.LineBasicMaterial({ color: edgeColor || color, transparent: true, opacity: edge, depthWrite: false }));
+    lines.renderOrder = 2; g.add(lines);
+  }
+  return g;
+}
+
+const views = {};
+const loader = new GLTFLoader();
+function loadModel(file, onLoad, onErr) { loader.load('models/' + file, onLoad, undefined, onErr); }
+let currentView = null, pendingView = null, printerHead = null;
+
+function frame(obj, { pad = 1.35, target } = {}) {
+  obj.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = target || box.getCenter(new THREE.Vector3());
+  const r = box.getBoundingSphere(new THREE.Sphere()).radius * pad;
+  return { c, r, size, box };
+}
+function setFreq(obj, height) { obj.traverse(o => { if (o.material?.uniforms?.uFreq) o.material.uniforms.uFreq.value = 70 / height; }); }
+function baseRing(radius, y, cx, cz) {
+  const g = new THREE.Group();
+  const grid = new THREE.PolarGridHelper(radius, 12, 6, 64, 0x3b6f93, 0x3b6f93);
+  grid.material.transparent = true; grid.material.opacity = .35; g.add(grid);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(radius * .98, radius, 96), new THREE.MeshBasicMaterial({ color: INK, transparent: true, opacity: .6, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = .01; g.add(ring);
+  // a slow rotating tick ring for a bit of life
+  const ticks = new THREE.Group();
+  for (let i = 0; i < 72; i++) {
+    const a = i / 72 * Math.PI * 2, len = i % 6 ? .03 : .07;
+    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(Math.cos(a) * radius * 1.03, 0, Math.sin(a) * radius * 1.03), new THREE.Vector3(Math.cos(a) * radius * (1.03 + len), 0, Math.sin(a) * radius * (1.03 + len))]);
+    ticks.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: INK, transparent: true, opacity: .5 })));
+  }
+  ticks.userData.spin = true; g.add(ticks);
+  g.position.set(cx, y, cz);
+  return g;
+}
+function finishView(name, root, { spec, hot, pad, target, elev = .18, set = null, ring = true } = {}) {
+  const f = frame(root, { pad, target });
+  setFreq(root, f.size.y || 1);
+  if (ring) root.add(baseRing(Math.max(f.size.x, f.size.z) * .75, f.box.min.y, f.c.x, f.c.z));
+  if (set) { set.box = f.box.clone(); addScanRing(set, Math.max(f.size.x, f.size.z) * .62, f.c); }
+  views[name] = { root, spec, hot, set, c: f.c, r: f.r, elev };
+  if (set) applyState(set, true);
+  if (pendingView === name) showView(name);
+}
+function showView(name) {
+  pendingView = name;
+  const v = views[name];
+  $('#loading').style.display = v ? 'none' : 'grid';
+  const sep = $('#sep');
+  if (!v) { sep.hidden = true; return; }
+  if (currentView) scene.remove(currentView.root);
+  currentView = v; scene.add(v.root); resize.moved = false;
+  controls.target.copy(v.c);
+  camDist = null; placeCamera(v);
+  controls.autoRotate = !reduced; pausedAt = -1;
+  $('#v-spec').textContent = v.spec ? v.spec.map(s => s.join(' ')).join('  ·  ') : '';
+  buildHots(v.hot || []);
+  sep.hidden = !v.set;
+  if (v.set) syncSepButton(v.set);
+  setHover(null); updateGlow(); renderQbar();
+}
+let camDist = null;
+function fitDistance(v) {
+  const vf = THREE.MathUtils.degToRad(camera.fov / 2), hf = Math.atan(Math.tan(vf) * camera.aspect);
+  return v.r * (v.set?.exploded ? v.set.spread : 1) / Math.sin(Math.min(vf, hf));
+}
+function placeCamera(v) {
+  const dist = fitDistance(v), dir = new THREE.Vector3(0.55, v.elev, 1).normalize();
+  camera.position.copy(v.c).addScaledVector(dir, dist);
+  camera.near = dist / 100; camera.far = dist * 20; camera.updateProjectionMatrix();
+}
+
+/* hotspots on the suit */
+let hotEls = [];
+function buildHots(list) {
+  const box = $('#hots'); box.textContent = ''; hotEls = [];
+  list.forEach(h => {
+    const b = el('button', 'hot' + (h.left ? ' left' : '')); b.type = 'button';
+    b.append(el('span', 'dot'), el('span', 'lab', byId[h.part].name)); b.setAttribute('aria-label', 'Open ' + byId[h.part].name);
+    b.addEventListener('click', () => select(h.part)); box.append(b); hotEls.push({ b, p: new THREE.Vector3(...h.pos) });
+  });
+}
+const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
+function placeHots() {
+  if (!hotEls.length) return;
+  const w = canvas.clientWidth, h = canvas.clientHeight, hide = (currentView?.set?.k || 0) > .02;
+  hotEls.forEach(({ b, p }) => {
+    tmp.copy(p).project(camera);
+    const vis = !hide && tmp.z < 1 && Math.abs(tmp.x) < 1.05 && Math.abs(tmp.y) < 1.05;
+    b.style.display = vis ? 'flex' : 'none';
+    b.style.left = ((tmp.x + 1) / 2 * w) + 'px'; b.style.top = ((1 - tmp.y) / 2 * h) + 'px';
+  });
+}
+
+/* ---------- panel sets: the suit split into selectable, state-coloured pieces ---------- */
+const sets = [];
+function geomsFromGLTF(gltf) {
+  const out = {}; gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(o => { if (o.isMesh) { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); if (g.attributes.color) g.deleteAttribute('color'); if (!g.attributes.normal) g.computeVertexNormals(); out[o.name] = g; } });
+  return out;
+}
+function pieceMesh(geom, kind, panelId) {
+  const m = new THREE.Mesh(geom, null);
+  const hm = holoMat(kind === 'web' || kind === 'logo' ? WHITE : INK, .5);
+  m.userData = { kind, panel: panelId, holo: hm, dark: kind === 'logo' ? darkMat() : null, col: hm.uniforms.uColor.value.clone(), op: .5, pat: 0 };
+  m.material = hm; m.renderOrder = 2;
+  return m;
+}
+const bracketGeo = (() => {   // corner brackets of a unit cube, for the selection frame
+  const p = [], L = .22;
+  for (const x of [-.5, .5]) for (const y of [-.5, .5]) for (const z of [-.5, .5]) {
+    p.push(x, y, z, x - Math.sign(x) * L, y, z, x, y, z, x, y - Math.sign(y) * L, z, x, y, z, x, y, z - Math.sign(z) * L);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); return g;
+})();
+function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2 } = {}) {
+  const set = { root: new THREE.Group(), pieces: {}, pick: [], exploded: false, k: 0, spread, glow: {}, order: [], scale: 1 };
+  ids.forEach((id, i) => {
+    const p = panelById[id], pivot = new THREE.Group(), inner = new THREE.Group(); pivot.add(inner); pivot.userData.panel = id;
+    const keys = p.logo ? [flatLogos ? id.replace('logo_', 'flat_') : id] : [id + '__red', id + '__blue', 'web__' + id];
+    keys.forEach(k => {
+      const g = G[k]; if (!g) return;
+      const kind = p.logo ? 'logo' : k.startsWith('web__') ? 'web' : k.endsWith('__red') ? 'red' : 'blue';
+      const m = pieceMesh(g, kind, id); m.userData.holo.uniforms.uCell.value = cell; inner.add(m); if (interactive) set.pick.push(m);
+    });
+    const bb = new THREE.Box3().setFromObject(inner), c = bb.getCenter(new THREE.Vector3());
+    inner.position.copy(c).negate(); pivot.position.copy(c);
+    const u = pivot.userData;
+    u.home = c.clone(); u.size = bb.getSize(new THREE.Vector3()); u.phase = i * 1.7;
+    u.dir = new THREE.Vector3(...p.dir).normalize().multiplyScalar(p.d);
+    u.kCur = 0; u.from = 0; u.to = 0; u.start = 0;
+    // a faint tether from where the piece belongs to where it floats
+    const tg = new THREE.BufferGeometry().setFromPoints([c.clone(), c.clone()]);
+    u.tether = new THREE.Line(tg, new THREE.LineDashedMaterial({ color: INK, dashSize: 2, gapSize: 1.5, transparent: true, opacity: 0, depthWrite: false }));
+    set.root.add(u.tether);
+    set.pieces[id] = pivot; set.glow[id] = 0; set.order.push(id); set.root.add(pivot);
+  });
+  if (gear) ['gear__Frame', 'gear__Lense', 'gear__Webshotter', 'gear__material'].forEach(k => {
+    if (!G[k]) return; const eyes = k.includes('Frame') || k.includes('Lense');
+    const h = holo(G[k], { color: eyes ? WHITE : AMBER, fill: eyes ? .9 : .6, edge: 0 }); h.userData.gear = k; h.userData.follow = eyes ? 'mask' : null; set.root.add(h);
+  });
+  // selection brackets
+  set.bracket = new THREE.LineSegments(bracketGeo, new THREE.LineBasicMaterial({ color: AMBER, transparent: true, opacity: 0, depthWrite: false }));
+  set.bracket.renderOrder = 3; set.bracket.userData.k = 0;
+  sets.push(set); return set;
+}
+function addScanRing(set, radius, c) {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(radius * .96, radius, 96), new THREE.MeshBasicMaterial({ color: AMBER, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(c.x, set.box.min.y, c.z); ring.renderOrder = 3;
+  set.scan = { ring, t0: -10 }; set.root.add(ring);
+}
+// per-piece look by build state; transitions ease in the loop
+function applyState(set, instant) {
+  Object.entries(set.pieces).forEach(([id, grp]) => {
+    const st = panelStatus(id), final = st === 'sewn' || st === 'glued', mid = st === 'painted' || st === 'cast';
+    grp.children[0].children.forEach(m => {
+      const u = m.userData; if (!u.holo) return;
+      const fab = u.kind === 'red' || u.kind === 'blue';
+      if (u.kind === 'logo' && st === 'glued') { u.wantDark = true; }
+      else u.wantDark = false;
+      u.colT = final ? SEWN[u.kind] : mid ? (fab ? GREEN : MINT) : (fab ? INK : WHITE);
+      u.opT = u.kind === 'web' ? (final ? .55 : .75) : u.kind === 'logo' ? .9 : final ? .62 : mid ? .62 : .5;
+      u.patT = final && fab ? 1 : 0;
+      m.material = u.wantDark ? u.dark : u.holo; m.renderOrder = u.wantDark ? 1 : 2;
+      if (instant) { u.col.copy(u.colT); u.op = u.opT; u.pat = u.patT; }
+      else if (u.lastState !== undefined && u.lastState !== st) u.flash = 1;   // flare on change
+      u.lastState = st;
+    });
+  });
+}
+function applyAllStates() { sets.forEach(s => applyState(s)); }
+function updateGlow() {
+  sets.forEach(set => {
+    Object.keys(set.pieces).forEach(id => { set.glow[id] = id === hoverPanel ? 1 : id === selPanel ? .45 : 0; });
+    const sel = selPanel && set.pieces[selPanel];
+    if (sel && set.bracket.parent !== sel) { sel.add(set.bracket); set.bracket.userData.k = 0; set.bracket.userData.t0 = clock.getElapsedTime(); }
+    if (!sel && set.bracket.parent) set.bracket.parent.remove(set.bracket);
+  });
+}
+function syncSepButton(set) { const b = $('#sep'); b.setAttribute('aria-pressed', set.exploded ? 'true' : 'false'); b.textContent = set.exploded ? 'Assemble' : 'Separate parts'; }
+function toggleExplode(set) {
+  const t = clock.getElapsedTime(); set.exploded = !set.exploded;
+  const order = set.exploded ? set.order : [...set.order].reverse();
+  order.forEach((id, i) => { const u = set.pieces[id].userData; u.from = u.kCur; u.to = set.exploded ? 1 : 0; u.start = t + i * .07; });
+  if (set.scan) set.scan.t0 = t;
+  syncSepButton(set);
+}
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const backOut = x => { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+function stepSets(dt, t) {
+  sets.forEach(set => {
+    let kmax = 0;
+    Object.entries(set.pieces).forEach(([id, grp]) => {
+      const u = grp.userData;
+      const x = THREE.MathUtils.clamp((t - u.start) / 1.15, 0, 1);
+      const e = u.to > u.from ? backOut(x) : ease(x);
+      u.kCur = u.from + (u.to - u.from) * e; kmax = Math.max(kmax, u.kCur);
+      const k = THREE.MathUtils.clamp(u.kCur, 0, 1.2);
+      const bob = reduced ? 0 : Math.sin(t * 1.1 + u.phase) * 2.2 * Math.min(k, 1);
+      grp.position.copy(u.home).addScaledVector(u.dir, u.kCur * set.scale); grp.position.y += bob;
+      grp.rotation.y = reduced ? 0 : Math.sin(t * .45 + u.phase) * .45 * Math.min(k, 1);
+      grp.rotation.x = reduced ? 0 : Math.sin(t * .3 + u.phase * 2) * .08 * Math.min(k, 1);
+      // tether
+      const pos = u.tether.geometry.attributes.position; pos.setXYZ(0, u.home.x, u.home.y, u.home.z); pos.setXYZ(1, grp.position.x, grp.position.y, grp.position.z); pos.needsUpdate = true;
+      u.tether.computeLineDistances(); u.tether.material.opacity = Math.min(k, 1) * .45;
+      // material easing, glow and selection sweep
+      const want = set.glow[id];
+      grp.children[0].children.forEach(m => {
+        const mu = m.userData; if (!mu.holo) return;
+        const a = Math.min(1, dt * 4);
+        mu.col.lerp(mu.colT || mu.col, a); mu.op += ((mu.opT ?? mu.op) - mu.op) * a; mu.pat += ((mu.patT ?? mu.pat) - mu.pat) * Math.min(1, dt * 2);
+        mu.g = (mu.g || 0) + (want - (mu.g || 0)) * Math.min(1, dt * 9);
+        mu.flash = Math.max(0, (mu.flash || 0) - dt * 1.4);
+        const U = mu.holo.uniforms; U.uColor.value.copy(mu.col); U.uOpacity.value = mu.op; U.uPat.value = mu.pat; U.uGlow.value = mu.g + mu.flash;
+        const sel = id === selPanel, sy = u.home.y + u.dir.y * u.kCur * set.scale - u.size.y / 2 + ((t * .55) % 1.2) * u.size.y;
+        U.uScan.value = sel ? .9 : mu.flash * 1.5; U.uScanY.value = sel ? sy : grp.position.y - u.size.y / 2 + (1 - mu.flash) * u.size.y; U.uScanW.value = Math.max(1, u.size.y * .06);
+        if (mu.dark) { const D = mu.dark.uniforms; D.uGlow.value = mu.g + mu.flash; D.uScan.value = U.uScan.value; D.uScanY.value = U.uScanY.value; D.uScanW.value = U.uScanW.value; }
+      });
+    });
+    set.k = kmax;
+    set.root.children.forEach(o => { if (!o.userData.gear) return; if (o.userData.follow && set.pieces[o.userData.follow]) { const pv = set.pieces[o.userData.follow]; o.position.copy(pv.position).sub(pv.userData.home); } else o.visible = kmax < .05; });
+    // scan ring sweeps up the suit whenever it separates or assembles
+    if (set.scan) {
+      const x = (t - set.scan.t0) / 1.6, r = set.scan.ring;
+      if (x >= 0 && x <= 1 && !reduced) { r.position.y = set.box.min.y + (set.box.max.y - set.box.min.y) * ease(x); r.material.opacity = Math.sin(x * Math.PI) * .8; }
+      else r.material.opacity = 0;
+    }
+    // selection brackets: snap in with a little overshoot, then breathe
+    const b = set.bracket;
+    if (b.parent) {
+      const u = b.parent.userData, x = THREE.MathUtils.clamp((t - (b.userData.t0 || 0)) / .45, 0, 1);
+      const s = 1.35 - .27 * backOut(x) + Math.sin(t * 3) * .012;
+      b.scale.set(Math.max(u.size.x, .5), Math.max(u.size.y, .5), Math.max(u.size.z, .5)).multiplyScalar(s); b.position.set(0, 0, 0);
+      b.material.opacity = x * (.75 + Math.sin(t * 4) * .2);
+    }
+  });
+}
+
+/* ---------- picking ---------- */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let pointer = null, downAt = null;
+canvas.addEventListener('pointermove', e => {
+  const r = canvas.getBoundingClientRect(); pointer = { x: e.clientX - r.left, y: e.clientY - r.top, type: e.pointerType };
+  if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 6) { downAt.dragged = true; pauseSpin(); }
+});
+canvas.addEventListener('pointerleave', () => { pointer = null; setHover(null); $('#tip').style.display = 'none'; });
+canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY, dragged: false }; });
+canvas.addEventListener('pointerup', e => {
+  const d = downAt; downAt = null; if (!d || d.dragged) return;
+  const r = canvas.getBoundingClientRect(); const id = pick(e.clientX - r.left, e.clientY - r.top);
+  if (id) { selectPanel(id); if (e.pointerType !== 'mouse') setHover(null); }
+  else if (selPanel && panelsFor(current).length) { selPanel = null; updateGlow(); render(); }
+});
+canvas.addEventListener('wheel', () => pauseSpin(), { passive: true });
+function pick(x, y) {
+  const set = currentView?.set; if (!set || !set.pick.length) return null;
+  ndc.set(x / canvas.clientWidth * 2 - 1, -(y / canvas.clientHeight) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(set.pick, false)[0];
+  return hit ? hit.object.userData.panel : null;
+}
+let pickFrame = 0;
+function hoverTick() {
+  const tip = $('#tip');
+  if (!pointer || pointer.type !== 'mouse' || downAt?.dragged) { if (!pointer) tip.style.display = 'none'; return; }
+  if (++pickFrame % 2) { tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px'; return; }   // pick every other frame
+  const id = pick(pointer.x, pointer.y);
+  setHover(id);
+  canvas.style.cursor = id ? 'pointer' : '';
+  if (id) {
+    const p = panelById[id], st = panelStatus(id);
+    if (tip.dataset.id !== id + st) { tip.textContent = ''; tip.append(el('b', '', p.name), el('span', '', p.code + ' · ' + { todo: p.logo ? 'not cast' : 'not painted', painted: 'ready to sew', sewn: 'sewn', cast: 'ready to glue', glued: 'glued' }[st])); tip.dataset.id = id + st; tip.classList.remove('pop'); void tip.offsetWidth; tip.classList.add('pop'); }
+    tip.style.display = 'block'; tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px';
+  } else { tip.style.display = 'none'; tip.dataset.id = ''; }
+}
+$('#sep').addEventListener('click', () => { const v = currentView; if (!v?.set) return; toggleExplode(v.set); camDist = fitDistance(v); });
+window.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, select')) return;
+  if ((e.key === 'e' || e.key === 'E') && currentView?.set) { toggleExplode(currentView.set); camDist = fitDistance(currentView); }
+  if (e.key === 'Escape' && selPanel) { selPanel = null; updateGlow(); render(); }
+});
+
+/* ---------- load the split suit and build every suit-based view ---------- */
+const ALLP = PANELS.map(p => p.id), FABRIC = ALLP.filter(id => !panelById[id].logo);
+loadModel('suit2.glb', gltf => {
+  const G = geomsFromGLTF(gltf);
+  FABRIC.forEach(id => {
+    const fr = (G[id + '__red']?.index?.count || 0), fb = (G[id + '__blue']?.index?.count || 0);
+    PANEL_INFO[id] = { red: fr / (fr + fb || 1), blue: fb / (fr + fb || 1) };
+  });
+  const sSuit = makeSet(G, ALLP, { gear: true, spread: 1.5 });
+  finishView('suit', sSuit.root, {
+    set: sSuit, spec: [['PANELS', '9 + 2 logos'], ['SCALE', 'reference model']],
+    hot: [
+      { part: 'hood', pos: [-12, 264, 8], left: true }, { part: 'lenses', pos: [7, 252, 18] },
+      { part: 'logos', pos: [0, 203, 24] }, { part: 'body', pos: [-20, 115, 14], left: true },
+      { part: 'webshooters', pos: [70, 166, 20] }, { part: 'faceshell', pos: [-9, 243, 17], left: true },
+    ], pad: 1.0, elev: .12,
+  });
+  const sBody = makeSet(G, ALLP, { spread: 1.5 });
+  finishView('body', sBody.root, { set: sBody, spec: [['PANELS', '9 spandex + 2 logos'], ['HOVER', 'inspect'], ['CLICK', 'select'], ['E', 'separate']], pad: 1.0, elev: .12 });
+  const sHood = makeSet(G, ['mask'], { spread: 1.3, cell: 1.4 }); sHood.scale = .45;
+  finishView('hood', sHood.root, { set: sHood, spec: [['FABRIC', 'red spandex'], ['CRITICAL', 'head sides · chin · top-to-back']], pad: 1.1, elev: .1 });
+  buildMolds(G);
+  applyAllStates(); render();
+}, () => { $('#loading').textContent = 'COULD NOT LOAD THE SUIT MODEL'; });
+
+/* ---------- logo molds: the two designs in their printed molds ---------- */
+function buildMolds(G) {
+  const root = new THREE.Group(), set = makeSet(G, ['logo_chest', 'logo_back'], { flatLogos: true, spread: 1.15 });
+  const dims = {};
+  [['logo_chest', -1], ['logo_back', 1]].forEach(([id, side]) => {
+    const pivot = set.pieces[id], s = pivot.userData.size.clone(); dims[id] = s;
+    const W = s.x + 2.4, H = s.y + 2.4, T = .6, x = side * (W / 2 + 1.6);
+    const holder = new THREE.Group(); holder.position.set(x, T - .1, 0); holder.rotation.x = -Math.PI / 2;
+    if (id === 'logo_back') holder.scale.x = -1;          // seen from behind, as it sits on the back
+    // re-home the pivot inside the flat holder
+    pivot.parent.remove(pivot); holder.add(pivot); pivot.userData.home.set(0, 0, 0); pivot.userData.dir.set(0, 0, 7);
+    const tether = pivot.userData.tether; tether.parent?.remove(tether); holder.add(tether);
+    const slab = holo(new THREE.BoxGeometry(W, T, H), { fill: .22, edge: .9, thresh: 10 }); slab.position.set(x, T / 2 - .15, 0);
+    root.add(slab, holder);
+  });
+  set.root = root;
+  const mm = v => Math.round(v * 10);
+  finishView('mold', root, { set, pad: 1.05, elev: .9, spec: [['CHEST', mm(dims.logo_chest.x) + ' × ' + mm(dims.logo_chest.y) + ' mm'], ['BACK', mm(dims.logo_back.x) + ' × ' + mm(dims.logo_back.y) + ' mm'], ['AT', 'reference size, scale to your panels'], ['BED', '256 mm: split anything bigger']] });
+}
+
+/* ---- printed parts from the user's files ---- */
+function loadPrinted(file, name, partSpec, rotX) {
+  loadModel(file, gltf => {
+    const geoms = geomsFromGLTF(gltf), root = new THREE.Group(), inner = new THREE.Group();
+    Object.values(geoms).forEach(g => inner.add(holo(g, { color: INK, fill: .6, edge: .22, thresh: 30 })));
+    inner.rotation.x = rotX; root.add(inner);
+    // centre the part on the turntable: middle of its footprint at the origin, resting on the base
+    inner.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(inner), cc = bb.getCenter(new THREE.Vector3());
+    inner.position.set(-cc.x, -bb.min.y, -cc.z);
+    const raw = new THREE.Box3(); Object.values(geoms).forEach(g => { g.computeBoundingBox(); raw.union(g.boundingBox); });
+    const s = raw.getSize(new THREE.Vector3());
+    const tris = Object.values(geoms).reduce((n, g) => n + (g.index ? g.index.count : g.attributes.position.count) / 3, 0);
+    const dims = [s.x, s.y, s.z].map(v => v.toFixed(1)).join(' × ') + ' mm';
+    const spec = [['BBOX', dims], ['MESH', Math.round(tris / 1000) + 'k tris (slimmed)'], ...partSpec];
+    finishView(name, root, { spec, pad: .95 });
+    if (current && byId[current].view === name) renderDetail();
+  }, () => { if (pendingView === name) $('#loading').textContent = 'COULD NOT LOAD ' + name.toUpperCase(); });
+}
+loadPrinted('faceshell.glb', 'faceshell', [['FILE', 'Standard.stl']], -Math.PI / 2);
+loadPrinted('webshooter.glb', 'webshooter', [['FILE', 'Web_Shooter_magnet_slots.3mf']], -Math.PI / 2);
+loadPrinted('lenses.glb', 'lenses', [['FILE', 'Normal.stl'], ['HOLD', 'magnets through hood']], -Math.PI / 2);
+
+/* ---- generic printer (not a model of any brand) ---- */
+(function buildPrinter() {
+  const S = 256, root = new THREE.Group(), frameG = new THREE.Group();
+  const box = new THREE.BoxGeometry(S + 60, S + 90, S + 60); box.translate(0, (S + 90) / 2, 0);
+  frameG.add(holo(box, { fill: .18, edge: .9, thresh: 10 }));
+  const bed = new THREE.BoxGeometry(S, 6, S); bed.translate(0, 40, 0);
+  frameG.add(holo(bed, { fill: .5, edge: .9, thresh: 10, color: WHITE }));
+  const plate = new THREE.GridHelper(S, 16, 0x63d3ff, 0x3b6f93); plate.position.y = 43.5; plate.material.transparent = true; plate.material.opacity = .5; frameG.add(plate);
+  const gantry = new THREE.BoxGeometry(S + 40, 14, 18); gantry.translate(0, 0, 0);
+  const gMesh = holo(gantry, { fill: .4, edge: .9, thresh: 10 }); gMesh.position.y = S + 40; frameG.add(gMesh);
+  const head = holo(new THREE.BoxGeometry(40, 46, 44), { fill: .7, edge: 1, thresh: 10, color: AMBER }); head.position.set(0, S + 22, 0); frameG.add(head);
+  const nozzle = holo(new THREE.ConeGeometry(5, 12, 12).rotateX(Math.PI), { fill: .9, edge: 0, color: AMBER }); nozzle.position.set(0, -29, 0); head.add(nozzle);
+  root.add(frameG); printerHead = { head, gantry: gMesh, S };
+  finishView('printer', root, { spec: [['BUILD', '256 × 256 × 256 mm'], ['SCHEMATIC', 'generic']], pad: .9, elev: .3 });
+})();
+let printing = false;
+function updatePrinterAnim() { printing = state.jobs.some(j => j.status === 'printing'); }
+
+/* ---- loop ---- */
+function resize() {
+  const w = viewer.clientWidth, h = viewer.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  if (currentView && !resize.moved) placeCamera(currentView);
+}
+new ResizeObserver(resize).observe(viewer); resize();
+let lastT = 0;
+renderer.setAnimationLoop(() => {
+  const t = clock.getElapsedTime();
+  holoMats.forEach(m => { if (m.uniforms.uTime) m.uniforms.uTime.value = reduced ? 0 : t; });
+  if (printerHead && currentView === views.printer) {
+    const { head, gantry, S } = printerHead;
+    if (printing && !reduced) {
+      head.position.x = Math.sin(t * 2.3) * S * .32; head.position.z = Math.sin(t * 1.1) * S * .3;
+      gantry.position.z = head.position.z;
+    }
+  }
+  const dt = Math.min(.05, t - (lastT || t)); lastT = t;
+  stepSets(dt, t);
+  if (camDist != null && currentView) {
+    const off = camera.position.clone().sub(controls.target), d = off.length(), nd = d + (camDist - d) * Math.min(1, dt * 4);
+    camera.position.copy(controls.target).addScaledVector(off.normalize(), nd);
+    if (Math.abs(camDist - nd) < .5) camDist = null;
+  }
+  hoverTick();
+  if (!reduced && !controls.autoRotate && pausedAt >= 0 && !downAt && t - pausedAt > 4) { controls.autoRotate = true; pausedAt = -1; }
+  scene.traverseVisible?.(o => { if (o.userData.spin) o.rotation.y = t * .08; });
+  controls.update(); renderer.render(scene, camera); placeHots();
+});
+
+/* ---- full screen: hides the surrounding app bar where the browser allows it ---- */
+(function () {
+  const b = $('#fsb'), root = document.documentElement;
+  if (!document.fullscreenEnabled || !root.requestFullscreen || matchMedia('(display-mode: standalone)').matches) return;
+  b.hidden = false;
+  const label = () => { b.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; };
+  b.addEventListener('click', () => {
+    const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+    Promise.resolve(p).catch(() => { b.hidden = true; banner('Full screen is blocked in this window.'); });
+  });
+  document.addEventListener('fullscreenchange', label);
+})();
+/* ---- offline: cache the app so it opens without internet ---- */
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+/* ---- boot ---- */
+renderTimeline();
+setInterval(renderTimeline, 60 * 60 * 1000);
+window.addEventListener('hashchange', () => { const id = location.hash.slice(1); if (id !== current) select(id); });
+select(location.hash.slice(1) || 'suit');
+startSync();
+</script>
+</body>
+</html>
