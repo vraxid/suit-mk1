@@ -1261,6 +1261,10 @@ function holoMat(color, opacity) {
         a += (pat * shimmer * (0.18 + f * 0.5) + uPat * 0.08) * vis;
         a *= 1.0 + uGlow * 1.2;
         a += scan * 0.55 * vis;
+        // surfaces facing away from you (his back while you look at his front, the lenses from behind) drop to a faint
+        // ghost, so the near side reads clearly and front and back can't be confused while he spins
+        float facing = dot(normalize(vN), normalize(vV));
+        a *= mix(0.09, 1.0, smoothstep(-0.2, 0.25, facing));
         vec3 col = c * (0.55 + f * 0.9 + sweep + pat * 0.8) + vec3(1.0, 0.85, 0.6) * scan;
         gl_FragColor = vec4(col, a);
       }`,
@@ -1279,7 +1283,8 @@ function darkMat() {
         float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.0);
         float scan = uScan * (1.0 - smoothstep(0.0, uScanW, abs(vW.y - uScanY)));
         vec3 c = vec3(0.04, 0.05, 0.08) + vec3(0.75, 0.92, 1.0) * (0.12 + f * 1.4) + vec3(1.0, 0.71, 0.28) * (uGlow * 0.45 + scan * 0.8);
-        gl_FragColor = vec4(c, 0.93 * uAlpha);
+        float facing = dot(normalize(vN), normalize(vV));
+        gl_FragColor = vec4(c, 0.93 * uAlpha * mix(0.06, 1.0, smoothstep(-0.2, 0.25, facing)));
       }`,
     transparent: true, side: THREE.DoubleSide,
   });
@@ -1418,7 +1423,10 @@ const bracketGeo = (() => {   // corner brackets of a unit cube, for the selecti
   }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); return g;
 })();
-function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2, ghost = false } = {}) {
+// an invisible copy of the fabric that only writes depth: the hologram behind it (his back, the lenses from behind,
+// wires on the far side) is hidden, so the suit reads as a solid figure instead of a see-through one
+const occMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
+function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2, ghost = false, occlude = false } = {}) {
   const set = { root: new THREE.Group(), pieces: {}, pick: [], exploded: false, k: 0, spread, glow: {}, order: [], scale: 1 };
   ids.forEach((id, i) => {
     const p = panelById[id], pivot = new THREE.Group(), inner = new THREE.Group(); pivot.add(inner); pivot.userData.panel = id;
@@ -1427,6 +1435,7 @@ function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatL
       const g = G[k]; if (!g) return;
       const kind = p.item ? (id === 'lens_gear' ? 'eye' : 'tech') : p.logo ? 'logo' : k.startsWith('web__') ? 'web' : k.endsWith('__red') ? 'red' : 'blue';
       const m = pieceMesh(g, kind, id); m.userData.holo.uniforms.uCell.value = cell; inner.add(m); if (interactive) set.pick.push(m);
+      if (occlude && (kind === 'red' || kind === 'blue')) { const o = new THREE.Mesh(g, occMat); o.renderOrder = -1; o.userData.occ = true; inner.add(o); (pivot.userData.occ = pivot.userData.occ || []).push(o); }
     });
     const bb = new THREE.Box3().setFromObject(inner), c = bb.getCenter(new THREE.Vector3());
     inner.position.copy(c).negate(); pivot.position.copy(c);
@@ -1550,6 +1559,7 @@ function stepSets(dt, t) {
       const ft = set.fadeT?.[id] ?? 1; u.fade = (u.fade ?? 1) + (ft - (u.fade ?? 1)) * Math.min(1, dt * (ft > (u.fade ?? 1) ? 3.5 : 5));
       if (set.focusC && u.fade < .999) grp.position.addScaledVector(tmp2.copy(u.home).sub(set.focusC).normalize(), (1 - u.fade) * 26);
       grp.visible = u.fade > .015;
+      if (u.occ) { const ov = u.fade > .6; u.occ.forEach(o => { o.visible = ov; }); }
       grp.rotation.y = reduced ? 0 : Math.sin(t * .45 + u.phase) * .05 * Math.min(k, 1);
       grp.rotation.x = 0;
       // tether
@@ -1839,7 +1849,7 @@ loadModel('suit3.glb', gltf => {
     const fr = (G[id + '__red']?.index?.count || 0), fb = (G[id + '__blue']?.index?.count || 0);
     PANEL_INFO[id] = { red: fr / (fr + fb || 1), blue: fb / (fr + fb || 1) };
   });
-  const sSuit = makeSet(G, ALLP, { spread: 1.12, ghost: true });
+  const sSuit = makeSet(G, ALLP, { spread: 1.12, ghost: true, occlude: true });
   setTimeout(tryInserts, 0);
   finishView('suit', sSuit.root, { set: sSuit, spec: [['PIECES', FABRIC.length + ' ATX pattern pieces + 2 logos'], ['CLICK', 'select'], ['CLICK AGAIN', 'zoom'], ['E', 'separate']], pad: 1.0, elev: .12 });
   buildMolds(G);
@@ -2592,7 +2602,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v18'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v19'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
