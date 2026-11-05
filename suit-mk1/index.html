@@ -1263,8 +1263,12 @@ function holoMat(color, opacity) {
         a += scan * 0.55 * vis;
         // surfaces facing away from you (his back while you look at his front, the lenses from behind) drop to a faint
         // ghost, so the near side reads clearly and front and back can't be confused while he spins
+        #ifdef BEHIND
+        a *= BEHIND;      // the x-ray pass: what is behind the body still shows, softly
+        #else
         float facing = dot(normalize(vN), normalize(vV));
         a *= mix(0.09, 1.0, smoothstep(-0.2, 0.25, facing));
+        #endif
         vec3 col = c * (0.55 + f * 0.9 + sweep + pat * 0.8) + vec3(1.0, 0.85, 0.6) * scan;
         gl_FragColor = vec4(col, a);
       }`,
@@ -1426,6 +1430,12 @@ const bracketGeo = (() => {   // corner brackets of a unit cube, for the selecti
 // an invisible copy of the fabric that only writes depth: the hologram behind it (his back, the lenses from behind,
 // wires on the far side) is hidden, so the suit reads as a solid figure instead of a see-through one
 const occMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2 });
+// the same hologram again, drawn only where something of the suit is in front of it, at a fraction of the strength:
+// the near side stays crisp and the far side glows through faintly, so it keeps the see-through look without the confusion
+function behindMat(hm, k) {
+  return new THREE.ShaderMaterial({ uniforms: hm.uniforms, vertexShader: hm.vertexShader, fragmentShader: hm.fragmentShader, defines: { BEHIND: k.toFixed(2) },
+    transparent: true, depthWrite: false, depthFunc: THREE.GreaterDepth, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+}
 function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatLogos = false, cell = 2.2, ghost = false, occlude = false } = {}) {
   const set = { root: new THREE.Group(), pieces: {}, pick: [], exploded: false, k: 0, spread, glow: {}, order: [], scale: 1 };
   ids.forEach((id, i) => {
@@ -1436,6 +1446,7 @@ function makeSet(G, ids, { gear = false, interactive = true, spread = 1.5, flatL
       const kind = p.item ? (id === 'lens_gear' ? 'eye' : 'tech') : p.logo ? 'logo' : k.startsWith('web__') ? 'web' : k.endsWith('__red') ? 'red' : 'blue';
       const m = pieceMesh(g, kind, id); m.userData.holo.uniforms.uCell.value = cell; inner.add(m); if (interactive) set.pick.push(m);
       if (occlude && (kind === 'red' || kind === 'blue')) { const o = new THREE.Mesh(g, occMat); o.renderOrder = -1; o.userData.occ = true; inner.add(o); (pivot.userData.occ = pivot.userData.occ || []).push(o); }
+      if (occlude) { const x = new THREE.Mesh(g, behindMat(m.userData.holo, kind === 'eye' || kind === 'logo' ? .14 : kind === 'web' ? .3 : .34)); x.renderOrder = 1; x.userData.xray = true; inner.add(x); }
     });
     const bb = new THREE.Box3().setFromObject(inner), c = bb.getCenter(new THREE.Vector3());
     inner.position.copy(c).negate(); pivot.position.copy(c);
@@ -2602,7 +2613,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v19'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v20'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
