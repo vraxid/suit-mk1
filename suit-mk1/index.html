@@ -179,6 +179,30 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .job.failed { border-color: #ff6b6b; }
 .js-queued { color: var(--line); } .js-printing { color: var(--amber); } .js-done { color: var(--good); } .js-failed { color: #ff6b6b; }
 .empty { color: var(--dim); font-size: 12px; padding: 4px 0; }
+/* web shooter sheet */
+.ws-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.ws-links a.btn { text-decoration: none; }
+.ws-file { display: grid; gap: 8px; border: 1px dashed var(--line); padding: 10px 12px; background: rgba(10,31,55,.55); }
+.ws-file p { margin: 0; color: #a9cbe0; font-size: 12px; }
+.ws-file .ok { color: var(--good); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+.bp { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.bp button { background: #f4f7fa; border: 1px solid var(--dim); padding: 0; cursor: zoom-in; display: grid; }
+.bp img { width: 100%; height: 92px; object-fit: contain; display: block; }
+.bp span { background: rgba(6,21,39,.95); color: var(--line); font-size: 9px; letter-spacing: .14em; text-transform: uppercase; padding: 4px 6px; text-align: left; }
+.mats h4 { margin: 10px 0 4px; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--line); font-weight: 500; }
+.mats .tasks label { grid-template-columns: 18px 1fr auto; }
+.mats .q { font-size: 10px; color: var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mats small { display: block; color: var(--dim); font-size: 10.5px; margin-top: 2px; text-decoration: none; }
+.mats .tools { color: #a9cbe0; font-size: 12px; margin: 2px 0 0; }
+.ovl { position: fixed; inset: 0; z-index: 60; background: rgba(3,9,16,.94); display: grid; grid-template-rows: auto 1fr; }
+.ovl[hidden] { display: none; }
+.ovl .bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); border-bottom: 1px solid var(--dim); }
+.ovl .bar b { flex: 1; font-family: var(--display); color: #fff; letter-spacing: .06em; font-size: 14px; }
+.ovl .bar button { background: none; border: 1px solid var(--line); color: var(--line); font-size: 11px; letter-spacing: .14em; padding: 6px 10px; cursor: pointer; text-transform: uppercase; }
+.ovl .body { overflow: auto; display: grid; place-items: center; touch-action: pan-x pan-y pinch-zoom; }
+.ovl .body img { background: #fff; max-width: none; display: block; }
+.ovl .vid { width: min(100%, 1100px); aspect-ratio: 16 / 9; border: 0; background: #000; }
+
 .log { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 0; max-height: 340px; overflow-y: auto; border-left: 1px solid var(--dim); }
 .log li { padding: 6px 0 8px 14px; position: relative; }
 .log li::before { content: ""; position: absolute; left: -4px; top: 11px; width: 7px; height: 7px; background: var(--paper); border: 1px solid var(--line); transform: rotate(45deg); }
@@ -441,6 +465,7 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
     </div>
     <aside class="sheet detail corner" id="detail" aria-live="polite"></aside>
   </main>
+  <div class="ovl" id="ovl" hidden role="dialog" aria-modal="true" aria-labelledby="ovl-t"><div class="bar"><b id="ovl-t"></b><span id="ovl-tools"></span><button type="button" id="ovl-x">Close</button></div><div class="body" id="ovl-b"></div></div>
   <footer>
     <span>Rafik · Cairo workshop · Target Feb 14 2027</span>
     <span class="backup">
@@ -498,9 +523,19 @@ const PARTS = [
       ['g-prime', 'Prime and sand the cavities smooth'], ['g-test', 'Test cast one spider leg'],
       ] },
   { id: 'webshooters', code: 'SM-06', name: 'Web shooters', view: 'webshooter', units: 'mm',
-    desc: 'Printed shooter with magnet slots. Two needed.',
-    tasks: [['w-print', 'Print all parts for both shooters'], ['w-mag', 'Fit the magnets into the slots'],
-      ['w-asm', 'Assemble both shooters'], ['w-finish', 'Paint and finish']] },
+    desc: 'HeroTech\u2019s Brand New Day shooter: a spring fires the projectile, a coreless motor reels the line back in. Two needed, left and right. Click the model to take it apart.',
+    tasks: [
+      ['w-print', 'Print every part for both shooters (left and right files)'], ['w-clean', 'Clean up the prints: supports off, file and sand the faces that meet'],
+      ['w-gears', 'Press in the dowel pin and bearings, glue the spur gear to the spool, check it spins freely'],
+      ['w-motor', 'Fit the worm on the motor and seat it in the motor holder, meshing with the spur gear'],
+      ['w-wire', 'Solder the motor, limit switch and battery to the JST connector, heat shrink every joint'],
+      ['w-lock', 'Fit the lock block on its small spring, run the nylon trigger line through the brass tube'],
+      ['w-line', 'Braid three strands of SpiderWire, tie it to the projectile and wind it onto the spool'],
+      ['w-spring', 'Fit the main spring and check the projectile latches and releases'],
+      ['w-mag', 'Glue in the magnets (check polarity first) and the countersunk magnet up front'],
+      ['w-asm', 'Close the top plate with the M2 and M3 screws'], ['w-strap', 'Thread the NATO strap through the magnetic plate and try it over your sleeve'],
+      ['w-test', 'Test fire and reel in; swap the main spring to tune the trigger'], ['w-second', 'Build the mirrored second shooter'],
+      ['w-finish', 'Finish both to the brushed stainless look']] },
   { id: 'printer', code: 'SM-07', name: 'Printer queue', view: 'printer',
     desc: 'Every print job for the build, across all parts. Mark a job printing and the toolhead on the drawing moves.',
     tasks: [] },
@@ -806,7 +841,7 @@ function jobForm(partId) {
 }
 
 /* ================= navigation: the model is the menu ================= */
-const CARDS = ['suit', 'logos', 'printer'];
+const CARDS = ['suit', 'webshooters', 'logos', 'printer'];
 const SUITPARTS = ['suit', 'body', 'hood', 'faceshell', 'lenses', 'webshooters'];
 const REGION = Object.fromEntries([...PANELS.map(p => [p.id, p.name]), ...Object.entries(REGIONS).map(([k, r]) => [k, r.name])]);
 // what each zoomed-in region offers: [type, id, label, anchor]. Pattern pieces are labelled by their code.
@@ -1031,7 +1066,7 @@ const hoverIdFor = ch => ch[0] === 'panel' ? ch[1] : ch[1] === 'lenses' ? 'lens_
 function renderDetail() {
   const box = $('#detail'); const keepNote = box.querySelector('textarea')?.value || '';
   box.textContent = '';
-  if (current === 'logos' || current === 'printer') return partSheet(box, current, keepNote);
+  if (current === 'logos' || current === 'printer' || current === 'webshooters') return partSheet(box, current, keepNote);
   if (nav.level === 0) {
     headBlock(box, 'SM-00', 'ASSEMBLY', 'Full suit', 'Click a part to select it. Click it again to zoom in and choose what to open.', progChip(progressOf(SUITPARTS)));
     inspectorBlock(box); regionBoardBlock(box); sizingBlock(box); evBlock(box);
@@ -1058,7 +1093,9 @@ function partSheet(box, partId, keepNote) {
   headBlock(box, p.code, pr.st === 'queue' ? 'SHOP' : 'PART', p.name, p.desc, progChip(pr));
   specBlock(box, p.view);
   if (partId === 'logos') { inspectorBlock(box); boardBlock(box, PANELS.filter(x => x.logo)); }
-  tasksBlock(box, partId);
+  if (partId === 'webshooters') { shooterFilesBlock(box); shooterLinksBlock(box); if (SHOOTER.pack) { blueprintBlock(box); materialsBlock(box); } }
+  tasksBlock(box, partId, partId === 'webshooters' ? 'Build steps' : null);
+  if (partId === 'webshooters' && SHOOTER.pack) queueShooterJobs(box);
   if (PRINTED.includes(partId) || partId === 'printer') jobsBlock(box, partId);
   logBlock(box, partId === 'printer' ? null : [partId], partId, keepNote, partId === 'printer' ? 'Build log · everything' : 'Build log');
 }
@@ -1096,7 +1133,9 @@ function renderLabels() {
   crumbs.textContent = path.join('  ›  '); name.textContent = title;
   code.textContent = ''; code.append(document.createTextNode(c), document.createElement('br'), document.createTextNode(current === 'suit' && nav.level === 0 ? 'Click twice to zoom' : 'Drag to rotate'));
   back.hidden = !(current === 'suit' && nav.level > 0); back.textContent = '← ' + (nav.level > 0 ? backLabel() : '');
-  $('#sep').hidden = !(currentView?.set) || (current === 'suit' && nav.level > 0);
+  const rg = activeRig();
+  $('#sep').hidden = !rg && (!(currentView?.set) || (current === 'suit' && nav.level > 0));
+  if (rg) syncRigButton(rg); else if (currentView?.set) syncSepButton(currentView.set);
 }
 
 function renderInspector() {
@@ -1315,6 +1354,212 @@ function loadModel(file, onLoad, onErr) {
 }
 let currentView = null, pendingView = null, printerHead = null, camAnim = null;
 
+/* ---------- HeroTech's Brand New Day web shooter ----------
+   The model, drawings and parts list are HeroTech members' files, so they are not part of this site: they are imported
+   once per device from the .mk1pack file and kept in this browser's own storage. */
+const PACK_CACHE = 'mk1-private', packURL = n => new URL('__pack/' + n, location.href).href;
+const SHOOTER = { pack: null, hi: null, lo: null, drawings: [] };
+async function unzip(buf) {
+  const v = new DataView(buf), u8 = new Uint8Array(buf), out = {};
+  let e = buf.byteLength - 22; while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('not a zip file');
+  let p = v.getUint32(e + 16, true); const n = v.getUint16(e + 10, true), td = new TextDecoder();
+  for (let i = 0; i < n; i++) {
+    const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true), nl = v.getUint16(p + 28, true), xl = v.getUint16(p + 30, true), cl = v.getUint16(p + 32, true), off = v.getUint32(p + 42, true);
+    const name = td.decode(u8.subarray(p + 46, p + 46 + nl)); p += 46 + nl + xl + cl;
+    const ds = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true), raw = u8.slice(ds, ds + csize);
+    if (name.endsWith('/') || name.startsWith('__MACOSX')) continue;
+    out[name.split('/').pop()] = method === 0 ? raw : new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  }
+  return out;
+}
+const MIME = { json: 'application/json', glb: 'model/gltf-binary', webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg' };
+async function importPack(file) {
+  try {
+    const files = await unzip(await file.arrayBuffer());
+    if (!files['pack.json'] || !files['shooter.glb']) throw new Error('this is not the web shooter pack');
+    const c = await caches.open(PACK_CACHE);
+    await Promise.all(Object.entries(files).map(([n, b]) => c.put(packURL(n), new Response(b, { headers: { 'Content-Type': MIME[n.split('.').pop()] || 'application/octet-stream' } }))));
+    banner('Web shooter files saved on this device. Reloading…'); setTimeout(() => location.reload(), 900);
+  } catch (e) { banner('Could not import that file: ' + (e.message || e)); }
+}
+async function removePack() { try { await caches.delete(PACK_CACHE); } catch {} location.reload(); }
+const packReady = (async () => {
+  try {
+    if (!('caches' in self)) return null;
+    const c = await caches.open(PACK_CACHE), j = await c.match(packURL('pack.json')); if (!j) return null;
+    const pack = await j.json(), buf = async n => { const r = await c.match(packURL(n)); return r ? r.arrayBuffer() : null; };
+    const parse = b => new Promise((res, rej) => loader.parse(b, '', res, rej));
+    const [hi, lo] = await Promise.all([buf('shooter.glb'), buf('shooter_lo.glb')]);
+    if (hi) SHOOTER.hi = geomsFromGLTF(await parse(hi));
+    if (lo) SHOOTER.lo = Object.values(geomsFromGLTF(await parse(lo)))[0];
+    SHOOTER.drawings = (await Promise.all((pack.drawings || []).map(async ([f, t]) => { const r = await c.match(packURL(f)); return r ? [URL.createObjectURL(await r.blob()), t] : null; }))).filter(Boolean);
+    SHOOTER.pack = pack; return SHOOTER;
+  } catch (e) { console.warn('web shooter pack', e); return null; }
+})();
+// the light version sits on the suit's wrists in place of the suit model's own shooters
+function shooterOnArm(geo, side) {
+  const g = geo.clone(), sp = SHOOTER_POS[side];
+  if (side === 'l') {   // the files are the right-hand shooter; the left one is its mirror
+    g.applyMatrix4(new THREE.Matrix4().makeScale(-1, 1, 1));
+    const ix = g.index.array; for (let i = 0; i < ix.length; i += 3) { const t = ix[i + 1]; ix[i + 1] = ix[i + 2]; ix[i + 2] = t; }
+  }
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(...sp.c), basisQuat(new THREE.Vector3(...sp.O), new THREE.Vector3(...sp.H)), new THREE.Vector3(.16, .16, .16));
+  g.applyMatrix4(m); g.computeVertexNormals(); g.computeBoundingBox(); g.computeBoundingSphere(); return g;
+}
+// an exploding assembly: every part sits where it belongs and slides out along its own direction
+const rigs = [];
+function buildRig(G, pack, { edges = true } = {}) {
+  const group = new THREE.Group(), parts = [], mats = [], pick = [];
+  Object.entries(pack.parts).forEach(([k, info]) => {
+    const geo = G[k]; if (!geo) return;
+    const color = info.kind === 'printed' ? INK : AMBER, pivot = new THREE.Group(), pm = [];
+    if (edges) pivot.add(holo(geo, { color, fill: info.kind === 'printed' ? .5 : .8, edge: info.kind === 'printed' ? .2 : .3, thresh: 32 }));
+    else { const mesh = new THREE.Mesh(geo, holoMat(color, 0)); mesh.renderOrder = 2; pivot.add(mesh); }
+    pivot.traverse(o => { if (o.isMesh) { o.userData.rigPart = k; pick.push(o); pm.push(o.material); mats.push(o.material); } });
+    group.add(pivot);
+    parts.push({ k, label: info.label, kind: info.kind, pivot, mats: pm, dir: new THREE.Vector3(...info.explode), cur: 0, from: 0, to: 0, start: 0, glow: 0 });
+  });
+  const rig = { group, parts, mats, pick, open: false, hover: null };
+  rigs.push(rig); return rig;
+}
+function toggleRig(rig, open = !rig.open, quiet) {
+  if (rig.open === open) return; rig.open = open;
+  const t = clock.getElapsedTime(), order = [...rig.parts].sort((a, b) => b.dir.length() - a.dir.length());
+  if (!open) order.reverse();
+  order.forEach((p, i) => { p.from = p.cur; p.to = open ? 1 : 0; p.start = t + i * .035; });
+  if (!quiet) SFX.separate(open);
+  if (activeRig() === rig) syncRigButton(rig);
+}
+function stepRigs(t, dt) {
+  rigs.forEach(r => r.parts.forEach(p => {
+    const x = THREE.MathUtils.clamp((t - p.start) / .8, 0, 1), e = p.to > p.from ? backOut(x) : ease(x);
+    p.cur = p.from + (p.to - p.from) * e; p.pivot.position.copy(p.dir).multiplyScalar(p.cur);
+    p.glow += ((r.hover === p.k ? 1 : 0) - p.glow) * Math.min(1, dt * 9);
+    p.mats.forEach(m => { if (m.uniforms?.uGlow) m.uniforms.uGlow.value = p.glow; });
+  }));
+}
+function syncRigButton(rig) { const b = $('#sep'); b.setAttribute('aria-pressed', rig.open ? 'true' : 'false'); b.textContent = rig.open ? 'Assemble' : 'Separate parts'; }
+// the rig on screen right now: the shooter's own sheet, or the shooter zoomed in on the suit's wrist
+function shooterIns() { return current === 'suit' && nav.level === 2 && nav.item?.id === 'webshooters' ? views.suit?.set?.inserts?.webshooters : null; }
+function activeRig() { if (current === 'webshooters') return currentView?.rig || null; return shooterIns()?.rig || null; }
+function rigHit(rig, x, y) {
+  ndc.set(x / canvas.clientWidth * 2 - 1, -(y / canvas.clientHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  return ray.intersectObjects(rig.pick, false)[0]?.object.userData.rigPart || null;
+}
+function rigToggleAndFrame(rig) {
+  toggleRig(rig);
+  const ins = shooterIns();
+  if (ins) { const at = insertAnchor('webshooters'); camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), rig.open ? 2.3 : 1.3), 1.2); }
+  else if (currentView?.rig === rig) camDist = fitDistance(currentView);
+}
+function buildShooterView() {
+  const root = new THREE.Group();
+  if (SHOOTER.hi) {
+    const rig = buildRig(SHOOTER.hi, SHOOTER.pack), turn = new THREE.Group(); turn.add(rig.group); root.add(turn);
+    turn.rotation.y = Math.PI * .5; turn.updateMatrixWorld(true);
+    const bb = new THREE.Box3().setFromObject(turn), c = bb.getCenter(new THREE.Vector3()); turn.position.set(-c.x, -bb.min.y, -c.z);
+    const s = SHOOTER.pack.size_mm, nPrinted = Object.values(SHOOTER.pack.parts).filter(p => p.kind === 'printed').length;
+    finishView('webshooter', root, { pad: .9, elev: .35, spec: [['SIZE', s.map(v => Math.round(v)).join(' × ') + ' mm'], ['PARTS', nPrinted + ' printed + ' + (rig.parts.length - nPrinted) + ' bought'], ['CLICK', 'take apart'], ['FILES', 'HeroTech members']] });
+    views.webshooter.rig = rig;
+  } else {
+    // nothing imported on this device yet: a plain stand-in with the shooter's outline
+    const slab = new THREE.BoxGeometry(46, 7, 76); slab.translate(0, 3.5, 0);
+    const sh = new THREE.Shape([[-25, 0], [25, 0], [16, 13], [5, 18], [-5, 18], [-16, 13]].map(([x, y]) => new THREE.Vector2(x, y)));
+    const top = new THREE.ExtrudeGeometry(sh, { depth: 79, bevelEnabled: false }); top.translate(0, 7, -40);
+    root.add(holo(slab, { fill: .3, edge: .7, thresh: 10 }), holo(top, { fill: .3, edge: .7, thresh: 10 }));
+    finishView('webshooter', root, { pad: .95, elev: .35, spec: [['FILES', 'not on this device yet'], ['IMPORT', 'the HeroTech pack, in the sheet']] });
+  }
+}
+packReady.then(() => { buildShooterView(); if (current === 'webshooters') render(); });
+
+/* sheet blocks */
+function openOverlay(title, body, tools) {
+  const o = $('#ovl'); $('#ovl-t').textContent = title; const b = $('#ovl-b'); b.textContent = ''; b.append(body);
+  const tl = $('#ovl-tools'); tl.textContent = ''; (tools || []).forEach(t => tl.append(t));
+  o.hidden = false; $('#ovl-x').focus();
+}
+function closeOverlay() { const o = $('#ovl'); if (o.hidden) return; o.hidden = true; $('#ovl-b').textContent = ''; }
+$('#ovl-x').addEventListener('click', closeOverlay);
+window.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); }, true);
+function openVideo() {
+  const f = el('iframe', 'vid'); f.src = 'https://www.youtube-nocookie.com/embed/' + (SHOOTER.pack?.links?.video || 'LdvxE9xEEvY') + '?rel=0&playsinline=1';
+  f.title = 'HeroTech Brand New Day web shooter video'; f.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen'; f.allowFullscreen = true;
+  openOverlay('Build video · HeroTech', f);
+}
+function openDrawing(url, title) {
+  const img = el('img'); img.src = url; img.alt = title; let z = 0;
+  const fit = () => { const b = $('#ovl-b'); img.style.width = z ? Math.round(b.clientWidth * z) + 'px' : Math.min(b.clientWidth - 16, 1800) + 'px'; };
+  const zb = (t, f) => { const b = el('button', '', t); b.type = 'button'; b.addEventListener('click', f); return b; };
+  openOverlay(title, img, [zb('−', () => { z = Math.max(1, (z || 1) / 1.5); fit(); }), zb('+', () => { z = (z || 1) * 1.5; fit(); }), zb('Fit', () => { z = 0; fit(); })]);
+  img.onload = fit; fit();
+}
+function shooterFilesBlock(box) {
+  const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('HeroTech files'), el('span', '', SHOOTER.pack ? 'on this device' : 'not imported')); sec.append(h);
+  const w = el('div', 'ws-file');
+  if (SHOOTER.pack) {
+    w.append(el('div', 'ok', '✓ Model, drawings and parts list loaded'), el('p', '', 'They are kept in this browser only, not on the website. Import the pack once on each phone or laptop you use.'));
+    const r = el('button', 'btn', 'Remove from this device'); r.type = 'button'; r.addEventListener('click', removePack); w.append(r);
+  } else {
+    w.append(el('p', '', 'The 3D model, blueprints and parts list come from HeroTech’s member files, so they are not on the public site. Import the BND-web-shooter.mk1pack file once on this device.'));
+    const inp = el('input'); inp.type = 'file'; inp.accept = '.mk1pack,.zip,application/zip'; inp.hidden = true; inp.id = 'pack-in';
+    inp.addEventListener('change', () => { if (inp.files[0]) importPack(inp.files[0]); });
+    const l = el('label', 'btn', 'Import HeroTech pack'); l.htmlFor = 'pack-in'; w.append(inp, l);
+  }
+  sec.append(w); box.append(sec);
+}
+function shooterLinksBlock(box) {
+  const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('Tutorial'), el('span', '', 'HeroTech')); sec.append(h);
+  const row = el('div', 'ws-links');
+  const v = el('button', 'btn', '▶ Watch the build video'); v.type = 'button'; v.addEventListener('click', openVideo);
+  const a = el('a', 'btn', 'Member tutorial ↗'); a.href = SHOOTER.pack?.links?.member || 'https://herotech.engineering/brandnewdaywebshooter'; a.target = '_blank'; a.rel = 'noopener';
+  row.append(v, a); sec.append(row);
+  sec.append(el('div', 'hint', 'The steps below are a short version of HeroTech’s tutorial. Follow his page for the details.')); box.append(sec);
+}
+function blueprintBlock(box) {
+  if (!SHOOTER.drawings.length) return;
+  const sec = el('section'); const h = el('h3'); h.append(document.createTextNode('Blueprints'), el('span', '', 'tap to open')); sec.append(h);
+  const g = el('div', 'bp');
+  SHOOTER.drawings.forEach(([url, t]) => { const b = el('button'); b.type = 'button'; const i = el('img'); i.src = url; i.alt = t; b.append(i, el('span', '', t)); b.addEventListener('click', () => openDrawing(url, t)); g.append(b); });
+  sec.append(g); box.append(sec);
+}
+async function toggleMat(id, label, on) {
+  if (!db) return;
+  const cur = { ...(state.done.webshooters || {}) };
+  if (on) cur[id] = new Date().toISOString(); else delete cur[id];
+  state.done.webshooters = cur; render(); SFX.step(on);
+  try {
+    await serial('parts/webshooters', () => db.doc('parts/webshooters').set({ done: cur, updatedAt: new Date().toISOString() }));
+    await db.collection('logs').add({ part: 'webshooters', kind: 'task', text: (on ? 'Got: ' : 'Unticked: ') + label, at: new Date().toISOString() });
+  } catch (e) { writeFail(e); }
+}
+function materialsBlock(box) {
+  const B = SHOOTER.pack.bom, done = state.done.webshooters || {};
+  const all = [...B.printed.map(x => x[0]), ...B.purchased.map(x => x[0])], have = all.filter(id => done[id]).length;
+  const usd = B.purchased.reduce((a, x) => a + (x[4] || 0), 0);
+  const sec = el('section', 'mats'); const h = el('h3'); h.append(document.createTextNode('Materials'), el('span', '', have + '/' + all.length + ' ready')); sec.append(h);
+  sec.append(el('div', 'hint', 'Quantities are for both shooters. HeroTech’s listed prices add up to about $' + Math.round(usd) + ' for one set of packs.'));
+  const list = (title, rows, fn) => { sec.append(el('h4', '', title)); const ul = el('ul', 'tasks'); rows.forEach(r => ul.append(fn(r))); sec.append(ul); };
+  const row = (id, label, q, note) => {
+    const li = el('li'), lab = el('label'), cb = el('input'); cb.type = 'checkbox'; cb.checked = !!done[id]; cb.disabled = !db;
+    cb.addEventListener('change', () => toggleMat(id, label, cb.checked));
+    const t = el('span', '', label); if (note) t.append(el('small', '', note));
+    lab.append(cb, t, el('span', 'q', q)); li.append(lab); return li;
+  };
+  list('3D printed · tick when printed', B.printed, ([id, n, q, note]) => row(id, n, '×' + q, note));
+  list('Buy · tick when you have them', B.purchased, ([id, n, q, both, usd, note]) => row(id, n, '×' + both + (usd ? ' · $' + usd.toFixed(2) : ''), note));
+  sec.append(el('h4', '', 'Tools'), el('p', 'tools', B.tools.join(' · ')));
+  box.append(sec);
+}
+function queueShooterJobs(box) {
+  const have = new Set(state.jobs.filter(j => j.part === 'webshooters').map(j => j.name));
+  const names = []; SHOOTER.pack.bom.printed.forEach(([, n, q]) => { if (q === 1) names.push(n); else ['left', 'right'].forEach(s => names.push(n + ' · ' + s)); });
+  const missing = names.filter(n => !have.has(n)); if (!missing.length) return;
+  const b = el('button', 'btn', 'Add the ' + missing.length + ' shooter prints to the queue'); b.type = 'button'; b.disabled = !db;
+  b.addEventListener('click', async () => { b.disabled = true; for (const n of missing) await addJob({ name: n, part: 'webshooters', hours: null, grams: null }); });
+  box.append(b);
+}
+
 function frame(obj, { pad = 1.35, target } = {}) {
   obj.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(obj), size = box.getSize(new THREE.Vector3()), c = target || box.getCenter(new THREE.Vector3());
@@ -1361,14 +1606,14 @@ function showView(name) {
   controls.autoRotate = !reduced; pausedAt = -1;
   $('#v-spec').textContent = v.spec ? v.spec.map(s => s.join(' ')).join('  ·  ') : '';
   buildHots(v.hot || []);
-  sep.hidden = !v.set;
-  if (v.set) syncSepButton(v.set);
+  sep.hidden = !v.set && !v.rig;
+  if (v.set) syncSepButton(v.set); else if (v.rig) syncRigButton(v.rig);
   setHover(null); updateGlow(); renderQbar();
 }
 let camDist = null;
 function fitDistance(v) {
   const vf = THREE.MathUtils.degToRad(camera.fov / 2), hf = Math.atan(Math.tan(vf) * camera.aspect);
-  return v.r * (v.set?.exploded ? v.set.spread : 1) / Math.sin(Math.min(vf, hf));
+  return v.r * (v.set?.exploded ? v.set.spread : v.rig?.open ? 1.75 : 1) / Math.sin(Math.min(vf, hf));
 }
 function placeCamera(v) {
   const dist = fitDistance(v), dir = new THREE.Vector3(0.55, v.elev, 1).normalize();
@@ -1623,6 +1868,8 @@ canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clie
 canvas.addEventListener('pointerup', e => {
   const d = downAt; downAt = null; if (!d || d.dragged) return;
   const r = canvas.getBoundingClientRect(); const id = pick(e.clientX - r.left, e.clientY - r.top);
+  const rg = !id && activeRig();
+  if (rg && rigHit(rg, e.clientX - r.left, e.clientY - r.top)) { rigToggleAndFrame(rg); return; }
   if (id) { handleModelClick(id); if (e.pointerType !== 'mouse') setHover(null); }
   else if (selPanel && nav.level === 0 && inspectIds().length) { selPanel = null; updateGlow(); render(); }
 });
@@ -1640,6 +1887,17 @@ let pickFrame = 0;
 function hoverTick() {
   const tip = $('#tip');
   if (!pointer || pointer.type !== 'mouse' || downAt?.dragged) { if (!pointer) tip.style.display = 'none'; return; }
+  const rg = activeRig();
+  if (rg) {   // the shooter: name the part under the cursor
+    if (++pickFrame % 2) { tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px'; return; }
+    const k = rigHit(rg, pointer.x, pointer.y), part = rg.parts.find(p => p.k === k);
+    rg.hover = k; canvas.style.cursor = k ? 'pointer' : '';
+    if (part) {
+      if (tip.dataset.id !== 'rig' + k + rg.open) { tip.textContent = ''; tip.append(el('b', '', part.label), el('span', '', (part.kind === 'printed' ? '3D printed' : 'Bought') + ' · click to ' + (rg.open ? 'put it back together' : 'take it apart'))); tip.dataset.id = 'rig' + k + rg.open; }
+      tip.style.display = 'block'; tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px';
+    } else { tip.style.display = 'none'; tip.dataset.id = ''; }
+    return;
+  }
   if (++pickFrame % 2) { tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px'; return; }   // pick every other frame
   const id = pick(pointer.x, pointer.y);
   setHover(id);
@@ -1650,9 +1908,10 @@ function hoverTick() {
     tip.style.display = 'block'; tip.style.left = pointer.x + 'px'; tip.style.top = pointer.y + 'px';
   } else { tip.style.display = 'none'; tip.dataset.id = ''; }
 }
-$('#sep').addEventListener('click', () => { const v = currentView; if (!v?.set) return; toggleExplode(v.set); camDist = fitDistance(v); });
+$('#sep').addEventListener('click', () => { const rg = activeRig(); if (rg) return rigToggleAndFrame(rg); const v = currentView; if (!v?.set) return; toggleExplode(v.set); camDist = fitDistance(v); });
 window.addEventListener('keydown', e => {
   if (e.target.closest('input, textarea, select')) return;
+  if ((e.key === 'e' || e.key === 'E') && activeRig()) { rigToggleAndFrame(activeRig()); return; }
   if ((e.key === 'e' || e.key === 'E') && currentView?.set && !(current === 'suit' && nav.level > 0)) { toggleExplode(currentView.set); camDist = fitDistance(currentView); }
   if (e.key === 'Escape') { if (current === 'suit' && nav.level > 0) navBack(); else if (selPanel) { selPanel = null; updateGlow(); render(); } }
   if (e.key === 'Backspace' && current === 'suit' && nav.level > 0) navBack();
@@ -1696,11 +1955,11 @@ function tryInserts() {
     const w = LENS_POS.dx * 2 + a.size.x * LENS_POS.scale;
     set.inserts.lenses = { g, mats: [...a.mats, ...b.mats], fade: 0, fadeT: 0, r: Math.hypot(w, a.size.y * LENS_POS.scale, a.size.z * LENS_POS.scale) * .5 };
   }
-  if (!set.inserts.webshooters && PRINTED_G.webshooter) {
-    const g = new THREE.Group(), { inner, mats, size } = printedPart('webshooter', 0); g.add(inner);
-    const sc = .16; g.scale.setScalar(sc);
-    g.visible = false; set.root.add(g); setFreq(g, size.z * sc);
-    set.inserts.webshooters = { g, mats, fade: 0, fadeT: 0, r: size.length() * sc * .5, turn: 0, turnT: 0 };
+  if (!set.inserts.webshooters && SHOOTER.hi) {   // HeroTech's shooter, built from its separate parts so it can come apart on the wrist
+    const g = new THREE.Group(), rig = buildRig(SHOOTER.hi, SHOOTER.pack, { edges: false }); g.add(rig.group);
+    const sc = .16, size = new THREE.Vector3(...SHOOTER.pack.size_mm); g.scale.setScalar(sc);
+    g.visible = false; set.root.add(g); setFreq(g, size.y * sc);
+    set.inserts.webshooters = { g, rig, mats: rig.mats, fade: 0, fadeT: 0, r: size.length() * sc * .5, turn: 0, turnT: 0 };
   }
 }
 function insertAnchor(part) {
@@ -1709,13 +1968,16 @@ function insertAnchor(part) {
   if (part === 'lenses') return LENS_POS.c.clone();
   return new THREE.Vector3(...SHOOTER_POS[shooterSide()].c);
 }
-function unturn(ins) { if (ins.q0 && ins.turnT) { ins.turnFrom = ins.turn; ins.turnT = 0; ins.turnStart = clock.getElapsedTime(); } }
+function unturn(ins) { if (ins.rig?.open) toggleRig(ins.rig, false, true); if (ins.q0 && ins.turnT) { ins.turnFrom = ins.turn; ins.turnT = 0; ins.turnStart = clock.getElapsedTime(); } }
 // the shooter starts out exactly as it sits on the wrist, then turns to face you as the camera closes in
 function aimShooter(ins, camDir) {
   const sp = SHOOTER_POS[shooterSide()];
+  if (ins.rig) ins.rig.group.scale.x = shooterSide() === 'l' ? -1 : 1;   // the left shooter is the mirror of the right one
   ins.q0 = basisQuat(new THREE.Vector3(...sp.O), new THREE.Vector3(...sp.H));
   const face = new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
-  ins.q1 = basisQuat(face, new THREE.Vector3(0, 1, 0));
+  const up = new THREE.Vector3(0, 1, 0);
+  // HeroTech's shooter turns side-on with its top tilted towards you, so its parts come apart where you can see them
+  ins.q1 = ins.rig ? basisQuat(face.clone().multiplyScalar(.6).addScaledVector(up, .8).normalize(), new THREE.Vector3().crossVectors(up, face).normalize()) : basisQuat(face, up);
   ins.g.quaternion.copy(ins.q0); ins.turn = 0; ins.turnT = 1; ins.turnStart = clock.getElapsedTime();
 }
 function stepInserts(set, dt) {
@@ -1853,9 +2115,11 @@ $('#back').addEventListener('click', navBack);
 
 /* ---------- load the split suit and build every suit-based view ---------- */
 const ALLP = PANELS.map(p => p.id), FABRIC = ALLP.filter(id => !panelById[id].logo && !panelById[id].item);
-loadModel('suit3.glb', gltf => {
+loadModel('suit3.glb', async gltf => {
   const G = geomsFromGLTF(gltf);
   ['gear__Webshotter', 'gear__material'].forEach(k => { G[k + '_l'] = splitX(G[k], 1); G[k + '_r'] = splitX(G[k], -1); });
+  await Promise.race([packReady, new Promise(r => setTimeout(r, 4000))]);
+  if (SHOOTER.lo) ['l', 'r'].forEach(sd => { G['gear__Webshotter_' + sd] = shooterOnArm(SHOOTER.lo, sd); delete G['gear__material_' + sd]; });   // HeroTech's shooters replace the suit's own
   FABRIC.forEach(id => {
     const fr = (G[id + '__red']?.index?.count || 0), fb = (G[id + '__blue']?.index?.count || 0);
     PANEL_INFO[id] = { red: fr / (fr + fb || 1), blue: fb / (fr + fb || 1) };
@@ -1908,7 +2172,6 @@ function loadPrinted(file, name, partSpec, rotX) {
   }, () => { if (pendingView === name) $('#loading').textContent = 'COULD NOT LOAD ' + name.toUpperCase(); });
 }
 loadPrinted('faceshell.glb', 'faceshell', [['FILE', 'Standard.stl']], -Math.PI / 2);
-loadPrinted('webshooter.glb', 'webshooter', [['FILE', 'Web_Shooter_magnet_slots.3mf']], -Math.PI / 2);
 loadPrinted('lenses.glb', 'lenses', [['FILE', 'Normal.stl'], ['HOLD', 'magnets through hood']], -Math.PI / 2);
 
 /* ---- generic printer (not a model of any brand) ---- */
@@ -1982,7 +2245,7 @@ renderer.setAnimationLoop(() => {
     }
   }
   const dt = Math.min(.05, t - (lastT || t)); lastT = t;
-  stepSets(dt, t);
+  stepSets(dt, t); stepRigs(t, dt);
   if (viewIntro) { const x = THREE.MathUtils.clamp((t - viewIntro.t0) / .9, 0, 1); viewIntro.root.scale.setScalar(.25 + .75 * backOut(x)); if (x >= 1) { viewIntro.root.scale.setScalar(1); viewIntro = null; } }
   if (stepCam(t)) {} else if (camDist != null && currentView) {
     const off = camera.position.clone().sub(controls.target), d = off.length(), nd = d + (camDist - d) * Math.min(1, dt * 4);
@@ -2613,7 +2876,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v20'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v21'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;

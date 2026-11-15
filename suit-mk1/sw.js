@@ -1,5 +1,5 @@
 // Offline cache for Suit Mk1. Bump VERSION whenever any file changes.
-const VERSION = 'mk1-v20';
+const VERSION = 'mk1-v21';
 const FILES = [
   "./",
   "fonts/chakra-petch-latin-600-normal.woff2",
@@ -18,7 +18,6 @@ const FILES = [
   "models/logo.glb",
   "models/lenses.glb",
   "models/suit3.glb",
-  "models/webshooter.glb",
   "vendor/jsm/controls/OrbitControls.js",
   "vendor/jsm/loaders/GLTFLoader.js",
   "vendor/jsm/utils/BufferGeometryUtils.js",
@@ -28,7 +27,7 @@ const FILES = [
   "vendor/kokoro/ort-wasm-simd-threaded.jsep.mjs",
 ];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting())); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== 'mk1-voice').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== VERSION && k !== 'mk1-voice' && k !== 'mk1-private').map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   if (new URL(e.request.url).pathname.includes('/audio/')) return;   // let the browser stream the music itself
