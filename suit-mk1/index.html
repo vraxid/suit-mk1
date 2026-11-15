@@ -1976,8 +1976,8 @@ function aimShooter(ins, camDir) {
   ins.q0 = basisQuat(new THREE.Vector3(...sp.O), new THREE.Vector3(...sp.H));
   const face = new THREE.Vector3(camDir.x, 0, camDir.z).normalize();
   const up = new THREE.Vector3(0, 1, 0);
-  // HeroTech's shooter turns side-on with its top tilted towards you, so its parts come apart where you can see them
-  ins.q1 = ins.rig ? basisQuat(face.clone().multiplyScalar(.6).addScaledVector(up, .8).normalize(), new THREE.Vector3().crossVectors(up, face).normalize()) : basisQuat(face, up);
+  // HeroTech's shooter lies flat and level, nozzle to the side; the camera looks down on it instead of the shooter tilting
+  ins.q1 = ins.rig ? basisQuat(up, new THREE.Vector3().crossVectors(up, face).normalize()) : basisQuat(face, up);
   ins.g.quaternion.copy(ins.q0); ins.turn = 0; ins.turnT = 1; ins.turnStart = clock.getElapsedTime();
 }
 function stepInserts(set, dt) {
@@ -1995,8 +1995,8 @@ function stepInserts(set, dt) {
 
 /* ---------- zoom navigation on the full suit ---------- */
 let viewIntro = null;
-function camTo(target, dist, dur = 1.25) {
-  const dir = camera.position.clone().sub(controls.target).normalize();
+function camTo(target, dist, dur = 1.25, viewDir) {
+  const dir = viewDir ? viewDir.clone().normalize() : camera.position.clone().sub(controls.target).normalize();
   if (dir.lengthSq() < .5) dir.set(.48, .12, .87).normalize();
   camAnim = { p0: camera.position.clone(), q0: controls.target.clone(), q1: target.clone(), p1: target.clone().addScaledVector(dir, dist), t0: clock.getElapsedTime(), dur };
   camDist = null; resize.moved = true;
@@ -2064,8 +2064,10 @@ function chooseItem(ch, direct) {
     selPanel = null;
     const ins = set.inserts[id], at = insertAnchor(id);
     setFade(set, [], at); ins.g.position.copy(at); ins.fadeT = 1;
-    if (id === 'webshooters') aimShooter(ins, camera.position.clone().sub(controls.target).normalize());
-    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), id === 'faceshell' ? .92 : id === 'webshooters' ? 1.3 : 1.2), 2.2);   // part fills most of the view
+    const cd = camera.position.clone().sub(controls.target).normalize();
+    if (id === 'webshooters') aimShooter(ins, cd);
+    const look = id === 'webshooters' && ins.rig ? new THREE.Vector3(cd.x, 0, cd.z).normalize().multiplyScalar(Math.cos(.6)).add(new THREE.Vector3(0, Math.sin(.6), 0)) : null;   // from about 35° above
+    camTo(at, frameDist(new THREE.Box3().setFromCenterAndSize(at, new THREE.Vector3(1, 1, 1).multiplyScalar(ins.r * 2 / Math.sqrt(3))), id === 'faceshell' ? .92 : id === 'webshooters' ? 1.3 : 1.2), 2.2, look);   // part fills most of the view
     controls.autoRotateSpeed = .35; SFX.zoom(true, true);
   } else {
     // the focused region dissolves and the printed part materialises in its place
@@ -2876,7 +2878,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v21'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v22'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
