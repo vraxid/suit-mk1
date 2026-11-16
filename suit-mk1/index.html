@@ -556,7 +556,13 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
   const fix = () => {
     const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
     let g = 0;
-    if (sa) { const H = innerWidth > innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height); g = H - innerHeight; if (g < 0 || g > 120) g = 0; }
+    if (sa) {
+      // where a fixed element with bottom: 0 really ends, against the real screen height
+      let pr = document.getElementById('gap-probe');
+      if (!pr) { pr = document.createElement('div'); pr.id = 'gap-probe'; pr.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;pointer-events:none;visibility:hidden'; document.documentElement.append(pr); }
+      const H = Math.max(innerWidth > innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height), innerHeight, visualViewport ? visualViewport.height : 0);
+      g = Math.round(H - pr.getBoundingClientRect().bottom); if (g < 0 || g > 140) g = 0;
+    }
     document.documentElement.style.setProperty('--iosgap', g + 'px');
   };
   fix(); addEventListener('resize', fix); addEventListener('orientationchange', () => setTimeout(fix, 300)); addEventListener('pageshow', fix); setTimeout(fix, 600); setTimeout(fix, 2000);
@@ -3101,7 +3107,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v24'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v25'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
