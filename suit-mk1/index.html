@@ -297,7 +297,10 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 /* ---------- phone app (body.m is set by script under 700px wide) ---------- */
 .part .ic, .part .sn, #mshell { display: none; }
 html { background: #040f1d; }
-body.m { --tabh: calc(64px + env(safe-area-inset-bottom)); --sh: 34svh; --vh: 64svh; overflow: hidden; height: 100svh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+/* home-screen app: give the page a full-screen-tall element so iOS sizes the web view to the whole screen */
+#vfill { position: absolute; top: 0; left: 0; width: 1px; height: 100vh; height: 100lvh; pointer-events: none; visibility: hidden; display: none; }
+html.sa #vfill { display: block; }
+body.m { --tabh: calc(64px + env(safe-area-inset-bottom)); --sh: 34svh; --vh: 64svh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 body.m .wrap { padding: 0; display: block; max-width: none; }
 body.m header.title, body.m footer, body.m .timeline-head-orig { display: none; }
 body.m main { display: block; }
@@ -549,23 +552,28 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
   </footer>
 </div>
 
+<div id="vfill" aria-hidden="true"></div>
 <script>
-/* iOS home-screen apps (black-translucent status bar) sometimes lay the page out one status bar shorter than the screen,
-   leaving a dead strip at the bottom. Measure it and let the fixed layers reach the real bottom edge. */
+/* iOS home-screen apps (black-translucent status bar) can lay the page out on the "small" viewport, one status bar
+   shorter than the screen, and leave a dead strip at the bottom. A full-height element in the page plus a forced
+   re-measure (hide it, reflow, show it) makes iOS size the web view to the whole screen again. */
 (function () {
-  const fix = () => {
-    const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
-    let g = 0;
-    if (sa) {
-      // where a fixed element with bottom: 0 really ends, against the real screen height
-      let pr = document.getElementById('gap-probe');
-      if (!pr) { pr = document.createElement('div'); pr.id = 'gap-probe'; pr.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;height:1px;pointer-events:none;visibility:hidden'; document.documentElement.append(pr); }
-      const H = Math.max(innerWidth > innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height), innerHeight, visualViewport ? visualViewport.height : 0);
-      g = Math.round(H - pr.getBoundingClientRect().bottom); if (g < 0 || g > 140) g = 0;
-    }
-    document.documentElement.style.setProperty('--iosgap', g + 'px');
+  const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  if (!sa) return;
+  document.documentElement.classList.add('sa');
+  let maxH = innerHeight;
+  const heal = () => {
+    const f = document.getElementById('vfill'); if (!f) return;
+    f.style.display = 'none'; void f.offsetHeight; f.style.display = '';
+    if (innerHeight > maxH) maxH = innerHeight;
+    window.scrollTo(0, 0);
   };
-  fix(); addEventListener('resize', fix); addEventListener('orientationchange', () => setTimeout(fix, 300)); addEventListener('pageshow', fix); setTimeout(fix, 600); setTimeout(fix, 2000);
+  addEventListener('resize', () => { if (innerHeight > maxH) maxH = innerHeight; });
+  addEventListener('load', () => { heal(); setTimeout(heal, 400); setTimeout(heal, 1500); });
+  addEventListener('pageshow', heal);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(heal, 120); });
+  document.addEventListener('focusout', e => { if (e.target.matches?.('input, textarea, select')) setTimeout(heal, 150); });   // the keyboard is the usual trigger
+  addEventListener('orientationchange', () => setTimeout(heal, 350));
 })();
 </script>
 <script type="module">
@@ -2400,7 +2408,7 @@ function mBuild() {
   det.addEventListener('touchend', tEnd); det.addEventListener('touchcancel', tEnd);
   try { if (!localStorage.getItem('mk1-m-hint')) { grab.classList.add('hint'); localStorage.setItem('mk1-m-hint', '1'); } } catch {}
 }
-function iosGap() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--iosgap')) || 0; }
+function iosGap() { return 0; }
 function mSafeTop() { return Math.max(0, ($('#mtop')?.offsetTop || 10) - 10); }
 function mSnaps() {
   const tab = $('#mtabs').offsetHeight || 64, avail = innerHeight + iosGap() - tab;
@@ -3107,7 +3115,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v25'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v26'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
