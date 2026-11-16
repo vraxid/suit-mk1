@@ -194,7 +194,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .mats .q { font-size: 10px; color: var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .mats small { display: block; color: var(--dim); font-size: 10.5px; margin-top: 2px; text-decoration: none; }
 .mats .tools { color: #a9cbe0; font-size: 12px; margin: 2px 0 0; }
-.ovl { position: fixed; inset: 0; z-index: 60; background: rgba(3,9,16,.94); display: grid; grid-template-rows: auto 1fr; }
+.ovl { position: fixed; inset: 0; bottom: calc(-1 * var(--iosgap, 0px)); z-index: 60; background: rgba(3,9,16,.94); display: grid; grid-template-rows: auto 1fr; }
 .ovl[hidden] { display: none; }
 .ovl .bar { display: flex; gap: 8px; align-items: center; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); border-bottom: 1px solid var(--dim); }
 .ovl .bar b { flex: 1; font-family: var(--display); color: #fff; letter-spacing: .06em; font-size: 14px; }
@@ -296,6 +296,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .qbar { display: none; }
 /* ---------- phone app (body.m is set by script under 700px wide) ---------- */
 .part .ic, .part .sn, #mshell { display: none; }
+html { background: #040f1d; }
 body.m { --tabh: calc(64px + env(safe-area-inset-bottom)); --sh: 34svh; --vh: 64svh; overflow: hidden; height: 100svh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
 body.m .wrap { padding: 0; display: block; max-width: none; }
 body.m header.title, body.m footer, body.m .timeline-head-orig { display: none; }
@@ -332,7 +333,7 @@ body.m #viewer:has(.qbar:not([hidden])) .sep { display: none; }
 #mmenu .backup { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 #mmenu .backup .btn { border-radius: 12px; padding: 11px 8px; font-size: 11px; letter-spacing: .04em; text-transform: none; justify-self: stretch; text-align: center; }
 /* bottom sheet */
-#msheet { position: fixed; left: 0; right: 0; bottom: var(--tabh); height: var(--sh); z-index: 20; display: flex; flex-direction: column; border-radius: 24px 24px 0 0; background: linear-gradient(180deg, rgba(13,38,66,.98), rgba(6,21,39,.99) 140px); box-shadow: 0 -12px 40px rgba(0,0,0,.5), 0 -1px 0 rgba(99,211,255,.35); transition: height .42s cubic-bezier(.2,.9,.22,1.06); will-change: height; }
+#msheet { position: fixed; left: 0; right: 0; bottom: calc(var(--tabh) - var(--iosgap, 0px)); height: var(--sh); z-index: 20; display: flex; flex-direction: column; border-radius: 24px 24px 0 0; background: linear-gradient(180deg, rgba(13,38,66,.98), rgba(6,21,39,.99) 140px); box-shadow: 0 -12px 40px rgba(0,0,0,.5), 0 -1px 0 rgba(99,211,255,.35); transition: height .42s cubic-bezier(.2,.9,.22,1.06); will-change: height; }
 #msheet.drag { transition: none; }
 #mgrab { flex: none; padding: 9px 0 6px; display: grid; place-items: center; cursor: grab; touch-action: none; }
 #mgrab i { width: 42px; height: 5px; border-radius: 3px; background: rgba(99,211,255,.45); }
@@ -361,7 +362,7 @@ body.m .tl-seg .n { font-size: 12px; }
 body.m .tl-today { display: none; }
 body.m .detail { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 0; background: none; padding: 6px 16px calc(28px + env(safe-area-inset-bottom)); gap: 18px; align-content: start; }
 /* tab bar */
-#mtabs { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabh); z-index: 25; background: rgba(4,13,24,.97); border-top: 1px solid rgba(99,211,255,.16); padding-bottom: env(safe-area-inset-bottom); }
+#mtabs { position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--iosgap, 0px)); height: var(--tabh); z-index: 25; background: rgba(4,13,24,.97); border-top: 1px solid rgba(99,211,255,.16); padding-bottom: env(safe-area-inset-bottom); }
 body.m .parts { display: grid; grid-template-columns: repeat(4, 1fr); height: 64px; margin: 0; gap: 0; padding: 0 6px; }
 body.m .part { display: grid; justify-items: center; align-content: center; gap: 3px; border: 0; background: none; padding: 6px 2px; position: relative; color: #8fb3cb; }
 body.m .part:hover { transform: none; }
@@ -414,7 +415,7 @@ footer { align-items: center; }
 @keyframes hscan { from { transform: translateY(0); } to { transform: translateY(calc(100vh + 240px)); } }
 .vlabel.telem { top: 86px; left: 14px; color: var(--dim); font-variant-numeric: tabular-nums; letter-spacing: .14em; }
 /* ---------- startup sequence ---------- */
-#intro { position: fixed; inset: 0; z-index: 50; background: radial-gradient(circle at 50% 45%, #0a2541 0%, #04101e 55%, #020810 100%); display: grid; place-items: center; transition: opacity .9s ease, clip-path 1s cubic-bezier(.7,0,.2,1); clip-path: circle(150% at 50% 50%); }
+#intro { position: fixed; inset: 0; bottom: calc(-1 * var(--iosgap, 0px)); z-index: 50; background: radial-gradient(circle at 50% 45%, #0a2541 0%, #04101e 55%, #020810 100%); display: grid; place-items: center; transition: opacity .9s ease, clip-path 1s cubic-bezier(.7,0,.2,1); clip-path: circle(150% at 50% 50%); }
 #intro.out { opacity: 0; clip-path: circle(0% at 50% 50%); pointer-events: none; }
 #intro::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(99,211,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(99,211,255,.06) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%); -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 75%); }
 #ic { position: absolute; inset: 0; width: 100%; height: 100%; }
@@ -548,6 +549,19 @@ footer { font-size: 10px; letter-spacing: .14em; color: var(--dim); text-transfo
   </footer>
 </div>
 
+<script>
+/* iOS home-screen apps (black-translucent status bar) sometimes lay the page out one status bar shorter than the screen,
+   leaving a dead strip at the bottom. Measure it and let the fixed layers reach the real bottom edge. */
+(function () {
+  const fix = () => {
+    const sa = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    let g = 0;
+    if (sa) { const H = innerWidth > innerHeight ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height); g = H - innerHeight; if (g < 0 || g > 120) g = 0; }
+    document.documentElement.style.setProperty('--iosgap', g + 'px');
+  };
+  fix(); addEventListener('resize', fix); addEventListener('orientationchange', () => setTimeout(fix, 300)); addEventListener('pageshow', fix); setTimeout(fix, 600); setTimeout(fix, 2000);
+})();
+</script>
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -2380,9 +2394,10 @@ function mBuild() {
   det.addEventListener('touchend', tEnd); det.addEventListener('touchcancel', tEnd);
   try { if (!localStorage.getItem('mk1-m-hint')) { grab.classList.add('hint'); localStorage.setItem('mk1-m-hint', '1'); } } catch {}
 }
+function iosGap() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--iosgap')) || 0; }
 function mSafeTop() { return Math.max(0, ($('#mtop')?.offsetTop || 10) - 10); }
 function mSnaps() {
-  const tab = $('#mtabs').offsetHeight || 64, avail = innerHeight - tab;
+  const tab = $('#mtabs').offsetHeight || 64, avail = innerHeight + iosGap() - tab;
   return { peek: Math.round(Math.max(176, avail * .34)), half: Math.round(avail * .58), full: Math.round(avail - 62 - mSafeTop()) };
 }
 function mSetH(h) { M.h = h; $('#msheet').style.height = h + 'px'; }
@@ -2392,7 +2407,7 @@ function mSnap(name, anim = true) {
   if (!anim) sheet.classList.add('drag');
   mSetH(s[name]);
   if (!anim) { void sheet.offsetWidth; sheet.classList.remove('drag'); }
-  const tab = $('#mtabs').offsetHeight || 64, vh = innerHeight - tab - Math.min(s[name], s.half) + 26;
+  const tab = $('#mtabs').offsetHeight || 64, vh = innerHeight + iosGap() - tab - Math.min(s[name], s.half) + 26;
   if (Math.abs(viewer.offsetHeight - vh) > 2) viewer.style.height = vh + 'px';
 }
 function mAuto(name) { if (M?.on && M.snap !== name) mSnap(name); }
@@ -2953,7 +2968,7 @@ const INTRO = (() => {
   const R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); R.setPixelRatio(Math.min(devicePixelRatio, 2));
   const S = new THREE.Scene(), C = new THREE.PerspectiveCamera(32, 1, .1, 1000); C.position.set(0, 4, 84);
   const G = new THREE.Group(); S.add(G);
-  function size() { const w = innerWidth, h = innerHeight; R.setSize(w, h, false); C.aspect = w / h; C.position.z = 84 * Math.max(1, .9 / Math.min(C.aspect, 1)); C.updateProjectionMatrix(); }
+  function size() { const w = innerWidth, h = innerHeight + iosGap(); R.setSize(w, h, false); C.aspect = w / h; C.position.z = 84 * Math.max(1, .9 / Math.min(C.aspect, 1)); C.updateProjectionMatrix(); }
   addEventListener('resize', size); size();
   // reveal shader for the emblem: fills in from a moving line with a scanning edge
   const logoMat = new THREE.ShaderMaterial({
@@ -3086,7 +3101,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v23'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v24'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
