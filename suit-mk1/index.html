@@ -294,46 +294,118 @@ input:focus, textarea:focus, select:focus { border-color: var(--line); outline: 
 .fsb:hover { background: rgba(99,211,255,.14); }
 
 .qbar { display: none; }
-/* ---------- phone layout ---------- */
-@media (max-width: 700px) {
-  .wrap { padding: calc(10px + env(safe-area-inset-top)) 12px calc(28px + env(safe-area-inset-bottom)); gap: 10px; }
-  header.title { padding: 10px 12px 12px; gap: 10px; }
-  .brand h1 { font-size: 30px; }
-  .brand .mk { font-size: 10px; letter-spacing: .26em; }
-  .meta { grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 22px; }
-  .meta .v { font-size: 18px; }
-  .timeline { padding: 8px 12px 20px; }
-  .tl-head { margin-bottom: 6px; font-size: 9px; }
-  .tl-bar { height: 30px; gap: 2px; }
-  .tl-seg { padding: 2px 5px; }
-  .tl-seg .d { display: none; }
-  .tl-seg .n { font-size: 10px; }
-  main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
-  .viewer, .parts, .detail { width: 100%; }
-  main > div:first-child { display: contents; }
-  .viewer { position: sticky; top: env(safe-area-inset-top); z-index: 5; height: 46svh; min-height: 300px; background: var(--paper); }
-  .vlabel.bl, .vlabel.tr, .vlabel.telem { display: none; }
-  .backb { top: 52px; left: 10px; }
-  .vlabel.tl { top: 8px; left: 10px; font-size: 9px; }
-  .vlabel .big { font-size: 18px; }
-  .sep { top: 10px; right: 10px; bottom: auto; padding: 7px 10px; font-size: 9px; }
-  .hot .lab { font-size: 9px; padding: 1px 5px; }
-  .parts { display: flex; overflow-x: auto; gap: 6px; margin: 0; padding-bottom: 4px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-  .part { flex: 0 0 136px; scroll-snap-align: start; padding: 8px 9px; }
-  .part .nm { font-size: 14px; }
-  .part:hover { transform: none; }
-  .detail { padding: 14px 12px 16px; gap: 16px; }
-  .d-head h2 { font-size: 22px; }
-  .tasks label { padding: 9px 6px; }
-  .board li { padding: 8px 4px; grid-template-columns: 12px 1fr auto auto; }
-  .mini { padding: 6px 7px; }
-  .qbar:not([hidden]) { display: grid; position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 4; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; background: rgba(6,21,39,.92); border: 1px solid var(--amber); padding: 8px 8px 8px 10px; animation: rise .25s ease both; }
-  .qbar .qn { font-family: var(--display); font-weight: 600; font-size: 15px; color: #fff; line-height: 1.1; }
-  .qbar .qs { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
-  .qbar .mini { padding: 8px 9px; font-size: 9px; }
-  .fsb { display: none; }
-  footer { font-size: 9px; }
-}
+/* ---------- phone app (body.m is set by script under 700px wide) ---------- */
+.part .ic, .part .sn, #mshell { display: none; }
+body.m { --tabh: calc(64px + env(safe-area-inset-bottom)); --sh: 34svh; --vh: 64svh; overflow: hidden; height: 100svh; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+body.m .wrap { padding: 0; display: block; max-width: none; }
+body.m header.title, body.m footer, body.m .timeline-head-orig { display: none; }
+body.m main { display: block; }
+body.m main > div:first-child { display: contents; }
+body.m #mshell { display: block; }
+body.m .corner::before, body.m .corner::after { display: none; }
+/* model on top, filling everything the sheet leaves free */
+body.m .viewer { position: fixed; left: 0; right: 0; top: 0; height: var(--vh); border: 0; z-index: 1; background: radial-gradient(120% 80% at 50% 35%, #0b2746 0%, #061527 60%, #040f1d 100%); }
+body.m .vlabel.tr, body.m .vlabel.bl, body.m .vlabel.telem, body.m .hudscan { display: none; }
+body.m .vlabel.tl { top: calc(env(safe-area-inset-top) + 12px); left: 16px; right: 112px; font-size: 10px; }
+body.m #crumbs { font-size: 10px; letter-spacing: .12em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+body.m .vlabel .big { font-size: 24px; letter-spacing: .02em; }
+body.m .backb { top: calc(env(safe-area-inset-top) + 74px); bottom: auto; left: 14px; padding: 7px 12px !important; border-radius: 999px; padding: 10px 14px; font-size: 11px; letter-spacing: .08em; text-transform: none; background: rgba(6,21,39,.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+body.m .sep { top: auto; bottom: 34px; right: 12px; border-radius: 999px; padding: 10px 14px; font-size: 11px; letter-spacing: .08em; text-transform: none; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+body.m .hot .lab { font-size: 10px; padding: 3px 8px; border-radius: 999px; letter-spacing: .06em; }
+body.m .qbar:not([hidden]) { display: grid; position: absolute; left: 10px; right: 10px; bottom: 30px; z-index: 4; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; background: rgba(6,21,39,.9); border: 1px solid var(--amber); border-radius: 16px; padding: 8px 8px 8px 12px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: mpop .3s cubic-bezier(.2,1.4,.4,1) both; }
+body.m .qbar .qn { font-family: var(--display); font-weight: 600; font-size: 15px; color: #fff; line-height: 1.1; }
+body.m .qbar .qs { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+body.m .qbar .mini { padding: 9px 10px; font-size: 10px; border-radius: 999px; }
+body.m #viewer:has(.qbar:not([hidden])) .sep { display: none; }
+/* round icon buttons, top right */
+.mbtn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid rgba(99,211,255,.35); background: rgba(6,21,39,.72); color: var(--line); display: grid; place-items: center; cursor: pointer; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); padding: 0; }
+.mbtn svg { width: 20px; height: 20px; }
+#mtop { position: fixed; top: calc(env(safe-area-inset-top) + 10px); right: 12px; z-index: 30; display: flex; gap: 8px; }
+#mmenu { position: fixed; top: calc(env(safe-area-inset-top) + 58px); right: 12px; z-index: 70; width: min(300px, calc(100vw - 24px)); background: rgba(8,26,46,.97); border: 1px solid rgba(99,211,255,.3); border-radius: 18px; padding: 14px; display: grid; gap: 12px; box-shadow: 0 18px 50px rgba(0,0,0,.55); transform-origin: top right; animation: mpop .25s cubic-bezier(.2,1.3,.4,1) both; }
+#mmenu[hidden] { display: none; }
+#mmenu .mt { font-family: var(--display); font-weight: 700; color: #fff; font-size: 18px; letter-spacing: .04em; }
+#mmenu .mt small { display: block; font-family: var(--mono); font-weight: 400; font-size: 10px; letter-spacing: .14em; color: var(--line); margin-top: 2px; }
+#mmenu .ctrls { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#mmenu .ctl, #mmenu .fsb { border-radius: 12px; padding: 11px 10px; font-size: 11px; letter-spacing: .06em; text-transform: none; text-align: left; }
+#mmenu .ctl[aria-pressed="true"] { border-color: var(--line); background: rgba(99,211,255,.12); color: #fff; }
+#mmenu .sync { grid-column: 1 / -1; font-size: 10px; letter-spacing: .1em; }
+#mmenu .backup { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#mmenu .backup .btn { border-radius: 12px; padding: 11px 8px; font-size: 11px; letter-spacing: .04em; text-transform: none; justify-self: stretch; text-align: center; }
+/* bottom sheet */
+#msheet { position: fixed; left: 0; right: 0; bottom: var(--tabh); height: var(--sh); z-index: 20; display: flex; flex-direction: column; border-radius: 24px 24px 0 0; background: linear-gradient(180deg, rgba(13,38,66,.98), rgba(6,21,39,.99) 140px); box-shadow: 0 -12px 40px rgba(0,0,0,.5), 0 -1px 0 rgba(99,211,255,.35); transition: height .42s cubic-bezier(.2,.9,.22,1.06); will-change: height; }
+#msheet.drag { transition: none; }
+#mgrab { flex: none; padding: 9px 0 6px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+#mgrab i { width: 42px; height: 5px; border-radius: 3px; background: rgba(99,211,255,.45); }
+#mgrab.hint i { animation: mnudge 1.6s ease-in-out 3; }
+@keyframes mnudge { 0%, 100% { transform: none; } 40% { transform: translateY(-6px); background: var(--amber); } }
+#mstat { flex: none; padding: 0 16px 10px; touch-action: none; }
+.mrow { display: grid; grid-template-columns: 52px 1fr auto; gap: 12px; align-items: center; }
+.mring { width: 52px; height: 52px; position: relative; }
+.mring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.mring circle { fill: none; stroke-width: 5; }
+.mring .bg { stroke: rgba(99,211,255,.15); }
+.mring .fg { stroke: var(--good); stroke-linecap: round; transition: stroke-dashoffset .9s cubic-bezier(.2,.9,.2,1); filter: drop-shadow(0 0 4px rgba(92,242,166,.6)); }
+.mring b { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 13px; color: #fff; }
+.mnow b { display: block; font-family: var(--display); font-weight: 700; font-size: 16px; color: #fff; line-height: 1.15; }
+.mnow b em { font-style: normal; color: var(--amber); }
+.mnow span { font-size: 11px; color: #a9cbe0; }
+#mcal { width: 40px; height: 40px; }
+#mcal[aria-expanded="true"] { border-color: var(--amber); color: var(--amber); }
+body.m .timeline { display: none; margin-top: 10px; border: 0; background: none; padding: 0 0 18px; }
+body.m .timeline.open { display: block; animation: mrise .3s ease both; }
+body.m .tl-head { display: none; }
+body.m .tl-bar { height: 46px; gap: 4px; overflow-x: auto; padding-bottom: 2px; scroll-snap-type: x proximity; }
+body.m .tl-seg { flex: 0 0 auto !important; min-width: 112px; border-radius: 12px; padding: 4px 10px; scroll-snap-align: start; }
+body.m .tl-seg .d { display: block; font-size: 9px; }
+body.m .tl-seg .n { font-size: 12px; }
+body.m .tl-today { display: none; }
+body.m .detail { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; border: 0; background: none; padding: 6px 16px calc(28px + env(safe-area-inset-bottom)); gap: 18px; align-content: start; }
+/* tab bar */
+#mtabs { position: fixed; left: 0; right: 0; bottom: 0; height: var(--tabh); z-index: 25; background: rgba(4,13,24,.97); border-top: 1px solid rgba(99,211,255,.16); padding-bottom: env(safe-area-inset-bottom); }
+body.m .parts { display: grid; grid-template-columns: repeat(4, 1fr); height: 64px; margin: 0; gap: 0; padding: 0 6px; }
+body.m .part { display: grid; justify-items: center; align-content: center; gap: 3px; border: 0; background: none; padding: 6px 2px; position: relative; color: #8fb3cb; }
+body.m .part:hover { transform: none; }
+body.m .part:active { transform: scale(.92); }
+body.m .part .code, body.m .part .nm, body.m .part .st { display: none; }
+body.m .part .ic { display: grid; place-items: center; width: 54px; height: 30px; border-radius: 15px; transition: background .25s, color .25s; }
+body.m .part .ic svg { width: 22px; height: 22px; }
+body.m .part .sn { display: block; font-size: 10.5px; letter-spacing: .02em; font-family: var(--display); font-weight: 600; }
+body.m .part .ic { order: -2; } body.m .part .sn { order: -1; }
+body.m .part .meter { width: 26px; height: 3px; border-radius: 2px; }
+body.m .part .meter i { border-radius: 2px; }
+body.m .part, body.m .part:hover, body.m .part[aria-current="true"] { border: 0; box-shadow: none; background: none; }
+body.m .part:focus:not(:focus-visible) { outline: none; }
+body.m .part[aria-current="true"] { color: #fff; }
+body.m .part[aria-current="true"] .ic { background: rgba(255,181,71,.18); color: var(--amber); animation: mpop .35s cubic-bezier(.2,1.5,.4,1); }
+/* friendlier sheet content */
+body.m .d-head h2 { font-size: 24px; }
+body.m .d-head p { font-size: 13px; line-height: 1.5; }
+body.m section h3 { font-size: 11px; letter-spacing: .14em; color: #7fa6bf; }
+body.m .chip { border-radius: 999px; padding: 3px 10px; letter-spacing: .08em; }
+body.m .spec { border: 0; background: rgba(99,211,255,.06); border-radius: 12px; padding: 8px 12px; font-size: 11px; }
+body.m .btn { border-radius: 999px; padding: 11px 16px; font-size: 12px; letter-spacing: .06em; text-transform: none; }
+body.m .btn:active, body.m .mini:active, body.m .choice:active { transform: scale(.96); }
+body.m .mini { border-radius: 999px; }
+body.m .insp, body.m .choice, body.m .ws-file, body.m .jobs li, body.m .job { border-radius: 16px; }
+body.m .tasks { gap: 6px; }
+body.m .tasks label { grid-template-columns: 26px 1fr; gap: 12px; padding: 12px 12px; border: 1px solid rgba(99,211,255,.12); border-left-width: 1px; border-radius: 14px; background: rgba(10,31,55,.55); align-items: center; }
+body.m .mats .tasks label { grid-template-columns: 26px 1fr auto; }
+body.m .tasks label:hover { background: rgba(10,31,55,.55); }
+body.m .tasks input { width: 24px; height: 24px; margin: 0; border-radius: 50%; border-width: 1.5px; transition: background .2s, transform .2s; }
+body.m .tasks input:checked { transform: scale(1.08); box-shadow: 0 0 12px rgba(92,242,166,.5); }
+body.m .tasks input:checked::after { width: 10px; height: 5px; }
+body.m .tasks input:checked + span { color: #8fb3cb; }
+body.m .board li { padding: 10px 6px; }
+body.m .bp button { border-radius: 12px; overflow: hidden; }
+body.m .banner.show { position: fixed; z-index: 80; top: calc(env(safe-area-inset-top) + 60px); left: 12px; right: 12px; border-radius: 14px; background: rgba(8,26,46,.97); border-style: solid; animation: mpop .3s ease both; }
+body.m .ev { top: calc(env(safe-area-inset-top) + 62px); bottom: auto; left: 12px; right: 12px; width: auto; max-width: none; border-radius: 18px; padding: 10px 14px; transform: translateY(-10px); align-items: flex-start; }
+body.m .ev.on { transform: none; }
+body.m .ev .evt { font-size: 12.5px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+@keyframes mpop { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes mrise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+/* confetti */
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 90; overflow: hidden; }
+#fx i { position: absolute; width: 7px; height: 7px; border-radius: 2px; }
 .backup { display: flex; gap: 8px; flex-wrap: wrap; }
 .backup .btn { font-size: 10px; padding: 6px 10px; }
 footer { align-items: center; }
@@ -796,6 +868,7 @@ function renderTimeline() {
   $('#tl-now').textContent = nowName;
   const days = Math.ceil((day(TARGET) - now) / 864e5);
   $('#m-days').textContent = days > 0 ? days + 'd' : 'Done';
+  mUI();
 }
 
 function jobRow(j, showPart) {
@@ -1107,7 +1180,7 @@ function renderParts() {
     const b = el('button', 'part'); b.type = 'button';
     b.setAttribute('aria-current', id === current ? 'true' : 'false');
     b.addEventListener('click', () => { if (id === 'suit' && current === 'suit' && nav.level > 0) navHome(); else select(id); });
-    b.append(el('span', 'code', p.code), el('span', 'nm', p.name));
+    b.append(el('span', 'code', p.code), el('span', 'nm', p.name), ...tabBits(id));
     if (pr.st === 'queue') {
       const q = state.jobs.filter(j => j.status === 'queued' || j.status === 'printing'), on = state.jobs.some(j => j.status === 'printing');
       b.append(el('span', 'st ' + (on ? 'st-prog' : 'st-none'), on ? 'Printing · ' + q.length + ' in queue' : q.length + ' in queue'), el('span', 'meter'));
@@ -1215,7 +1288,7 @@ function renderQbar() {
     b.addEventListener('click', () => setStep(id, f, !on)); q.append(b);
   });
 }
-function render() { renderParts(); renderDetail(); renderInspector(); renderQbar(); renderLabels(); }
+function render() { renderParts(); renderDetail(); renderInspector(); renderQbar(); renderLabels(); mUI(); }
 let hoverPanel = null, selPanel = null;
 let hoverFromList = false;
 function setHover(id, from) {
@@ -1241,7 +1314,7 @@ function select(id, quiet) {
   else if (leavingZoom) { nav = { level: 0, focus: null, item: null }; if (views.suit?.set) setFade(views.suit.set, null); }
   buildHots([]);
   showView(byId[id].view);
-  render();
+  render(); mAuto(quiet ? 'peek' : 'half');
 }
 
 /* ================= 3D: hologram renderer ================= */
@@ -2050,7 +2123,7 @@ function focusOn(target) {
   const keep = KEEP[id] || [id];
   setFade(set, keep, id); camTo(piecesBox(set, keep).getCenter(new THREE.Vector3()), frameDist(piecesBox(set, keep), 1.45), 1.8);
   controls.autoRotateSpeed = .45; SFX.zoom(true);
-  showChoices(); updateGlow(); render();
+  showChoices(); updateGlow(); render(); mAuto('peek');
 }
 function chooseItem(ch, direct) {
   const [type, id] = ch, set = views.suit.set;
@@ -2078,7 +2151,7 @@ function chooseItem(ch, direct) {
     camera.position.copy(v.c).addScaledVector(dir, dfull * .45); camTo(v.c, dfull, 1.1);
     v.root.scale.setScalar(.25); viewIntro = { root: v.root, t0: clock.getElapsedTime() };
   }
-  updateGlow(); render();
+  updateGlow(); render(); mAuto('peek');
 }
 function navBack() {
   if (current !== 'suit' || nav.level === 0) return;
@@ -2101,7 +2174,7 @@ function navHome() {
   if (current !== 'suit' || wasPart) { current = 'suit'; showView('suit'); }
   setFade(set, null); buildHots([]);
   camTo(views.suit.c, fitDistance(views.suit), 2.0); controls.autoRotateSpeed = .8;
-  SFX.zoom(false); updateGlow(); render();
+  SFX.zoom(false); updateGlow(); render(); mAuto('peek');
 }
 function handleModelClick(id) {
   if (current !== 'suit') { selectPanel(id); return; }
@@ -2233,6 +2306,141 @@ function resize() {
   if (currentView && !resize.moved) placeCamera(currentView);
 }
 new ResizeObserver(resize).observe(viewer); resize();
+
+/* ================= phone app shell =================
+   Under 700px wide the page becomes an app: the model fills the top, a bottom sheet holds the lists and can be
+   dragged between three heights, and the part cards turn into a tab bar. Same elements, same code, moved around. */
+const MQ = matchMedia('(max-width: 700px)');
+var M = { on: false, snap: 'peek', h: 0, home: [], pct: null };   // var: render() can run before this point
+const SVG = (d, extra = '') => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' + extra + '>' + d + '</svg>';
+const TAB_ICON = {
+  suit: SVG('<path d="M12 3c-4.4 0-7 3.3-7 7.5 0 4.6 3.3 9.5 7 10.5 3.7-1 7-5.9 7-10.5C19 6.3 16.4 3 12 3z"/><path d="M7.4 10.3c1.6-.4 3.2.5 3.8 2.3-1.9.7-3.6-.2-3.8-2.3zM16.6 10.3c-1.6-.4-3.2.5-3.8 2.3 1.9.7 3.6-.2 3.8-2.3z"/>'),
+  webshooters: SVG('<rect x="4" y="7" width="16" height="10" rx="3"/><circle cx="12" cy="12" r="2.4"/><path d="M1.8 10v4M22.2 10v4M8 7V5.5M16 7V5.5"/>'),
+  logos: SVG('<path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>'),
+  printer: SVG('<path d="M6 9V3.5h12V9"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v6.5H7z"/>'),
+};
+const TAB_SHORT = { suit: 'Suit', webshooters: 'Shooters', logos: 'Molds', printer: 'Printer' };
+function tabBits(id) { const i = el('span', 'ic'); i.innerHTML = TAB_ICON[id] || ''; return [i, el('span', 'sn', TAB_SHORT[id] || byId[id].name)]; }
+
+function mBuild() {
+  const shell = el('div'); shell.id = 'mshell';
+  shell.innerHTML =
+    '<div id="mtop"><button class="mbtn" id="m-ev" type="button" aria-label="Ask E.V. for a status report">' + SVG('<path d="M5 10v4M9 7v10M13 9v6M17 6v12M21 10v4"/>') + '</button>' +
+    '<button class="mbtn" id="m-menu" type="button" aria-label="Settings" aria-expanded="false">' + SVG('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>') + '</button></div>' +
+    '<div id="mmenu" hidden><div class="mt">Suit Mk1<small id="m-ver"></small></div><div id="mm-ctrls"></div><div id="mm-backup"></div></div>' +
+    '<section id="msheet" aria-label="Details"><div id="mgrab" role="button" tabindex="0" aria-label="Drag or tap to resize the panel"><i></i></div>' +
+    '<div id="mstat"><div class="mrow"><div class="mring"><svg viewBox="0 0 52 52"><circle class="bg" cx="26" cy="26" r="22"/><circle class="fg" cx="26" cy="26" r="22" stroke-dasharray="138.2" stroke-dashoffset="138.2"/></svg><b id="m-ring">0%</b></div>' +
+    '<div class="mnow"><b id="m-now">–</b><span id="m-sub"></span></div><button class="mbtn" id="mcal" type="button" aria-label="Show the schedule" aria-expanded="false">' + SVG('<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/>') + '</button></div></div></section>' +
+    '<nav id="mtabs" aria-label="Sections"></nav><div id="fx" aria-hidden="true"></div>';
+  document.body.append(shell);
+  $('#m-ev').addEventListener('click', () => $('#ev').click());
+  const menu = $('#mmenu'), mb = $('#m-menu');
+  const setMenu = open => { menu.hidden = !open; mb.setAttribute('aria-expanded', open ? 'true' : 'false'); if (open) $('#m-ver').textContent = 'Build log ' + ($('#ver').textContent || '').trim(); };
+  mb.addEventListener('click', () => setMenu(menu.hidden));
+  document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && !mb.contains(e.target)) setMenu(false); }, true);
+  $('#mcal').addEventListener('click', () => {
+    const tl = $('.timeline'), open = !tl.classList.contains('open'); tl.classList.toggle('open', open); $('#mcal').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { $('.tl-seg.now')?.scrollIntoView({ inline: 'center', block: 'nearest' }); if (M.snap === 'peek') mSnap('half'); }
+  });
+  // dragging the sheet: the handle and the status row move it; the list takes over when it is scrolled to its top
+  const sheet = $('#msheet'); let D = null;
+  const start = y => { D = { y0: y, h0: M.h, moved: false, pts: [[y, performance.now()]] }; sheet.classList.add('drag'); };
+  const move = y => {
+    const s = mSnaps(), dy = y - D.y0; if (Math.abs(dy) > 5) D.moved = true;
+    let h = D.h0 - dy; if (h > s.full) h = s.full + (h - s.full) * .25; if (h < s.peek) h = s.peek - (s.peek - h) * .35;   // rubber band at the ends
+    mSetH(h); D.pts.push([y, performance.now()]); if (D.pts.length > 5) D.pts.shift();
+  };
+  const end = tap => {
+    sheet.classList.remove('drag'); if (!D) return;
+    const s = mSnaps(), order = ['peek', 'half', 'full'], [a, b] = [D.pts[0], D.pts.at(-1)], v = (a[0] - b[0]) / Math.max(1, b[1] - a[1]);   // px per ms, up is positive
+    let pick;
+    if (!D.moved) pick = tap ? (M.snap === 'full' ? 'peek' : order[order.indexOf(M.snap) + 1]) : M.snap;
+    else if (Math.abs(v) > .45) { const i = order.indexOf(M.snap) + (v > 0 ? 1 : -1); pick = order[Math.max(0, Math.min(2, i))]; if (pick === M.snap) pick = order.reduce((p, k) => Math.abs(s[k] - M.h) < Math.abs(s[p] - M.h) ? k : p, 'peek'); }
+    else pick = order.reduce((p, k) => Math.abs(s[k] - M.h) < Math.abs(s[p] - M.h) ? k : p, 'peek');
+    D = null; mSnap(pick);
+  };
+  const grab = $('#mgrab'), stat = $('#mstat');
+  [grab, stat].forEach(t => {
+    t.addEventListener('pointerdown', e => { if (e.target.closest('button') && t === stat) return; t.setPointerCapture(e.pointerId); start(e.clientY); });
+    t.addEventListener('pointermove', e => { if (D) move(e.clientY); });
+    t.addEventListener('pointerup', () => end(t === grab));
+    t.addEventListener('pointercancel', () => end(false));
+  });
+  grab.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mSnap(M.snap === 'full' ? 'peek' : M.snap === 'peek' ? 'half' : 'full'); } });
+  const det = $('#detail'); let C = null;
+  det.addEventListener('touchstart', e => { if (!M.on) return; C = { y0: e.touches[0].clientY, take: false }; }, { passive: true });
+  det.addEventListener('touchmove', e => {
+    if (!C) return; const y = e.touches[0].clientY, dy = y - C.y0;
+    if (!C.take) {
+      if ((M.snap !== 'full' && dy < -6) || (det.scrollTop <= 0 && dy > 6 && M.snap !== 'peek')) { C.take = true; start(C.y0); } else return;
+    }
+    e.preventDefault(); move(y);
+  }, { passive: false });
+  const tEnd = () => { if (C?.take) end(false); C = null; };
+  det.addEventListener('touchend', tEnd); det.addEventListener('touchcancel', tEnd);
+  try { if (!localStorage.getItem('mk1-m-hint')) { grab.classList.add('hint'); localStorage.setItem('mk1-m-hint', '1'); } } catch {}
+}
+function mSafeTop() { return Math.max(0, ($('#mtop')?.offsetTop || 10) - 10); }
+function mSnaps() {
+  const tab = $('#mtabs').offsetHeight || 64, avail = innerHeight - tab;
+  return { peek: Math.round(Math.max(176, avail * .34)), half: Math.round(avail * .58), full: Math.round(avail - 62 - mSafeTop()) };
+}
+function mSetH(h) { M.h = h; $('#msheet').style.height = h + 'px'; }
+function mSnap(name, anim = true) {
+  if (!M.on) return;
+  const s = mSnaps(), sheet = $('#msheet'); M.snap = name;
+  if (!anim) sheet.classList.add('drag');
+  mSetH(s[name]);
+  if (!anim) { void sheet.offsetWidth; sheet.classList.remove('drag'); }
+  const tab = $('#mtabs').offsetHeight || 64, vh = innerHeight - tab - Math.min(s[name], s.half) + 26;
+  if (Math.abs(viewer.offsetHeight - vh) > 2) viewer.style.height = vh + 'px';
+}
+function mAuto(name) { if (M?.on && M.snap !== name) mSnap(name); }
+function mApply(on) {
+  if (on === M.on) return;
+  if (on && !$('#mshell')) mBuild();
+  M.on = on; document.body.classList.toggle('m', on);
+  const moves = [[$('header .ctrls'), '#mm-ctrls'], [$('footer .backup'), '#mm-backup'], [$('.timeline'), '#mstat'], [$('#detail'), '#msheet'], [$('#parts'), '#mtabs']];
+  if (on) { M.home = moves.map(([n]) => [n, n.parentNode, n.nextSibling]); moves.forEach(([n, t]) => $(t).append(n)); mSnap(M.snap, false); }
+  else { [...M.home].reverse().forEach(([n, p, nx]) => p.insertBefore(n, nx)); viewer.style.height = ''; }
+  mUI(); resize();
+}
+// the status row: overall progress ring, the phase you are in, tasks and days left
+function mUI() {
+  if (!$('#mshell')) return;
+  const pct = parseInt($('#m-pct').textContent) || 0, ring = $('#mshell .mring .fg');
+  ring.style.strokeDashoffset = String(138.2 * (1 - pct / 100)); $('#m-ring').textContent = pct + '%';
+  const now = $('#tl-now').textContent || '–', [code, ...rest] = now.split(' · ');
+  const b = $('#m-now'); b.textContent = '';
+  if (rest.length) b.append(el('em', '', code + ' · '), document.createTextNode(rest.join(' · '))); else b.textContent = now;
+  const [d, n] = ($('#m-tasks').textContent || '0/0').split('/'), days = $('#m-days').textContent;
+  $('#m-sub').textContent = d + ' of ' + n + ' tasks done · ' + (days === 'Done' ? 'target reached' : days.replace('d', ' days') + ' to go');
+  // a part that just reached 100% gets a proper celebration
+  const cur = Object.fromEntries(CARDS.filter(id => id !== 'printer').map(id => [id, id === 'suit' ? progressOf(SUITPARTS).pct : progress(byId[id]).pct]));
+  if (M.pct) Object.entries(cur).forEach(([id, v]) => { if (v >= 1 && M.pct[id] < 1) { burst(innerWidth / 2, innerHeight * .4, true); banner(byId[id].name + ' complete! 🎉'); setTimeout(() => banner(''), 3500); } });
+  M.pct = cur;
+}
+// confetti and a tap of haptics whenever something gets ticked off
+function burst(x, y, big) {
+  if (reduced) return;
+  const fx = $('#fx') || (() => { const f = el('div'); f.id = 'fx'; document.body.append(f); return f; })();
+  const cols = ['#ffb547', '#63d3ff', '#5cf2a6', '#ffffff', '#ff6b6b'];
+  for (let i = 0; i < (big ? 46 : 16); i++) {
+    const d = el('i'); d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.background = cols[i % cols.length];
+    if (i % 3 === 0) d.style.borderRadius = '50%';
+    fx.append(d);
+    const a = Math.random() * Math.PI * 2, r = (big ? 110 : 34) + Math.random() * (big ? 170 : 46);
+    d.animate([{ transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(a) * r}px), calc(-50% + ${Math.sin(a) * r - (big ? 30 : 14)}px)) rotate(${Math.random() * 600 - 300}deg) scale(.5)`, opacity: 0 }],
+      { duration: 650 + Math.random() * (big ? 700 : 350), easing: 'cubic-bezier(.12,.8,.3,1)' }).onfinish = () => d.remove();
+  }
+  navigator.vibrate?.(big ? [18, 40, 18] : 10);
+}
+document.addEventListener('change', e => { const t = e.target; if (t.matches?.('input[type="checkbox"]') && t.checked && t.closest('#detail')) { const r = t.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2); } }, true);
+document.addEventListener('click', e => { const b = e.target.closest?.('.mini'); if (b && b.getAttribute('aria-pressed') === 'false' && !b.disabled) { const r = b.getBoundingClientRect(); burst(r.left + r.width / 2, r.top + r.height / 2); } }, true);
+MQ.addEventListener('change', e => mApply(e.matches));
+addEventListener('resize', () => { if (M.on) mSnap(M.snap, false); });
+mApply(MQ.matches);
 let lastT = 0;
 renderer.setAnimationLoop(() => {
   const t = clock.getElapsedTime();
@@ -2878,7 +3086,7 @@ const INTRO = (() => {
 })();
 
 /* ---- offline: cache the app so it opens without internet ---- */
-const APP_VERSION = 'v22'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
+const APP_VERSION = 'v23'; document.getElementById('ver').textContent = '· ' + APP_VERSION;
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   // pick up new versions on their own: check when the app comes back into focus, reload once a new version takes over
   const hadSW = !!navigator.serviceWorker.controller; let reloading = false;
